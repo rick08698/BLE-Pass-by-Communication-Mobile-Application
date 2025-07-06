@@ -23,6 +23,14 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
+	<dict>
+    <!---->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>このアプリはBluetoothを使用してデバイスと通信します</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>このアプリはBluetoothを使用してデバイスと通信します</string>
+    <!-- ユーザがアプリを初めて起動したときに、Bluetooth使用の許可を求める際にこの文言が表示されます。 -->
+
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
