@@ -33,15 +33,25 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<ScanResult> scanResults = [];     // Advertiseを受信したデバイス（Peripheral機器）一覧
-  BluetoothDevice? selectedDevice;       // 接続済みデバイス
-  bool isScanning = false;               // スキャン状態のフラグ
-  List<BluetoothService> services = [];  // 検出されたService一覧
+  List<ScanResult> scanResults = [];
+  BluetoothDevice? selectedDevice;
+  bool isScanning = false;
+  List<BluetoothService> services = [];
+
+  // ★ 1. 探したいBLEタグのMACアドレスを4つリストで定義
+  final List<String> targetTagAddresses = [
+    "AA:11:BB:22:CC:33", // 1つ目のタグのアドレス
+    "BB:22:CC:33:DD:44", // 2つ目のタグのアドレス
+    "CC:33:DD:44:EE:55", // 3つ目のタグのアドレス
+    "DD:44:EE:55:FF:66", // 4つ目のタグのアドレス
+  ];
+
+  // ★ 2. スキャン中に発見済みのタグを記録するためのSet
+  final Set<String> _foundDevices = {};
 
   @override
   void initState() {
     super.initState();
-    // Bluetoothの状態を監視
     FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) {
       if (state == BluetoothAdapterState.on) {
         logger.i('Bluetoothがオンになりました');
@@ -51,28 +61,39 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  // デバイスのスキャンを開始
   void startScan() async {
+    // ★ 3. スキャン開始時に発見済みリストをクリア
+    _foundDevices.clear();
     setState(() {
       scanResults = [];
       isScanning = true;
     });
 
     try {
-      // Peripheral機器からのAdvertise信号をスキャン
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 15),
         androidUsesFineLocation: false,
       );
 
-      // Advertise信号の受信をリアルタイムで監視
       FlutterBluePlus.scanResults.listen((results) {
         setState(() {
           scanResults = results;
         });
+
+        // ★ 4. スキャン結果をループし、ターゲットのタグを探す
+        for (final result in results) {
+          final deviceAddress = result.device.remoteId.toString();
+
+          // ターゲットリストに含まれていて、まだ発見済みとして記録されていないかチェック
+          if (targetTagAddresses.contains(deviceAddress) && !_foundDevices.contains(deviceAddress)) {
+            // 発見済みとして記録
+            _foundDevices.add(deviceAddress);
+            // どのデバイスが見つかったかメッセージを表示
+            _showHelloMessage(result.device);
+          }
+        }
       });
 
-      // スキャン完了を監視
       FlutterBluePlus.isScanning.listen((scanning) {
         setState(() {
           isScanning = scanning;
@@ -83,27 +104,23 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // デバイスに接続
   void connectToDevice(BluetoothDevice device) async {
     try {
-      // GATT接続の確立
       await device.connect();
       setState(() {
         selectedDevice = device;
       });
 
-      // GATT接続状態の監視
       device.connectionState.listen((BluetoothConnectionState state) {
         logger.i('接続状態: $state');
         if (state == BluetoothConnectionState.disconnected) {
           setState(() {
             selectedDevice = null;
-            services = []; // 切断時にServiceをクリア
+            services = [];
           });
         }
       });
 
-      // Serviceの探索
       services = await device.discoverServices();
       setState(() {});
     } catch (e) {
@@ -111,7 +128,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  // デバイスから切断
   void disconnectDevice() async {
     if (selectedDevice != null) {
       try {
@@ -125,6 +141,19 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  // ★ 5. メッセージ表示メソッドを修正し、どのデバイスか分かるようにする
+  void _showHelloMessage(BluetoothDevice device) {
+    if (!mounted) return;
+    final deviceName = device.platformName.isEmpty ? device.remoteId.toString() : device.platformName;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('👋 ターゲットデバイスを検知しました！: $deviceName'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -136,41 +165,34 @@ class _MyHomePageState extends State<MyHomePage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: <Widget>[
-            const SizedBox(height: 20),
-            if (selectedDevice == null) ...[
-              ElevatedButton(
-                onPressed: isScanning ? null : startScan,
-                child: Text(isScanning ? 'スキャン中...' : 'スキャン開始'),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: scanResults.length,
-                  itemBuilder: (context, index) {
-                    final result = scanResults[index];
-                    return ListTile(
-                      title: Text(result.device.platformName.isEmpty
-                          ? 'Unknown Device'
-                          : result.device.platformName),
-                      subtitle: Text('RSSI: ${result.rssi}'),
-                      onTap: () => connectToDevice(result.device),
-                    );
-                  },
-                ),
-              ),
-            ] else ...[
+            ElevatedButton(
+              onPressed: isScanning ? null : startScan,
+              child: Text(isScanning ? 'スキャン中...' : 'スキャン開始'),
+            ),
+            const SizedBox(height: 10),
+            if (selectedDevice != null) ...[
+              const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('接続済みデバイス: ${selectedDevice!.platformName}'),
+                  Expanded(
+                    child: Text(
+                      '接続中: ${selectedDevice!.platformName}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   ElevatedButton(
                     onPressed: disconnectDevice,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[300],
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('切断'),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Expanded(
+              SizedBox(
+                height: 200,
                 child: ListView.builder(
                   itemCount: services.length,
                   itemBuilder: (context, serviceIndex) {
@@ -190,6 +212,28 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ],
+            const Divider(),
+            const Text('周辺のデバイス', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: ListView.builder(
+                itemCount: scanResults.length,
+                itemBuilder: (context, index) {
+                  final result = scanResults[index];
+                  // ターゲットのタグをハイライト表示
+                  final isTarget = targetTagAddresses.contains(result.device.remoteId.toString());
+                  return ListTile(
+                    title: Text(
+                      result.device.platformName.isEmpty
+                          ? '(Unknown Device)'
+                          : result.device.platformName,
+                      style: TextStyle(color: isTarget ? Colors.blue : null, fontWeight: isTarget ? FontWeight.bold : null),
+                    ),
+                    subtitle: Text('RSSI: ${result.rssi}  |  ID: ${result.device.remoteId}'),
+                    onTap: () => connectToDevice(result.device),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
