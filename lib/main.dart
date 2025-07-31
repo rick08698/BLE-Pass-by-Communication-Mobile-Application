@@ -25,8 +25,162 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BLE スキャナー',
-      home: const BleTestPage(),
+      title: 'Bluetooth Love',
+      home: const TitlePage(),
+    );
+  }
+}
+
+// タイトル画面
+class TitlePage extends StatelessWidget {
+  const TitlePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.pink[100]!,
+              Colors.pink[50]!,
+              Colors.white,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                
+                // メインタイトル
+                const Icon(
+                  Icons.favorite,
+                  size: 80,
+                  color: Colors.pink,
+                ),
+                const SizedBox(height: 30),
+                
+                const Text(
+                  'Bluetooth Love',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.pink,
+                    letterSpacing: 2.0,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                
+                // サブタイトル
+                Text(
+                  '~romance begins with a chance encounter~',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey[600],
+                    letterSpacing: 1.0,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: 50),
+                
+                // 説明文
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.bluetooth_searching,
+                        size: 40,
+                        color: Colors.blue[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Bluetoothで近くの人と出会おう',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'スワイプでマッチング、チャットで会話\n新しい出会いがあなたを待っています',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const Spacer(),
+                
+                // スタートボタン
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const BleTestPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pink,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 5,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.play_arrow, size: 28),
+                        SizedBox(width: 8),
+                        Text(
+                          'はじめる',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -61,6 +215,11 @@ class _BleTestPageState extends State<BleTestPage> {
   bool _isInSwipeMode = true; // スワイプモード中かどうか（デフォルトでスワイプモード）
   int _currentDeviceIndex = 0; // 現在表示しているデバイスのインデックス
   
+  // アニメーション関連
+  double _cardOffset = 0.0; // カードの水平オフセット
+  double _cardRotation = 0.0; // カードの回転角度
+  bool _isDragging = false; // ドラッグ中かどうか
+  
   // チャット機能用の変数
   bool _isInChat = false; // チャット画面に遷移中かどうか
   String? _currentChatRoomId; // 現在のチャットルームID
@@ -73,6 +232,10 @@ class _BleTestPageState extends State<BleTestPage> {
   // 固定の自分のMACアドレス（アプリ起動時に一度だけ生成）
   late final String _myMac;
   static const String _myName = "あなた";
+  
+  // 告白促進機能用の変数
+  final Map<String, int> _messageCountPerRoom = {}; // チャットルームごとのメッセージ数
+  final Set<String> _confessionPromptShown = {}; // 告白促進が表示済みのルーム
 
 
   @override
@@ -443,210 +606,397 @@ class _BleTestPageState extends State<BleTestPage> {
       return _buildEventPage();
     }
     
-    // 通常のスキャン画面
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("BLE マッチングアプリ"),
-          backgroundColor: Colors.pink,
-          foregroundColor: Colors.white,
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
-              Tab(icon: Icon(Icons.bluetooth_searching), text: "スキャン"),
-              Tab(icon: Icon(Icons.favorite), text: "マッチ履歴"),
-            ],
+    // Tinder風のUI
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: _buildTinderMainScreen(),
+      bottomNavigationBar: _buildTinderBottomBar(),
+    );
+  }
+
+  // Tinder風のメイン画面
+  Widget _buildTinderMainScreen() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Tinder風のヘッダー
+          _buildTinderHeader(),
+          // カードエリア
+          Expanded(
+            child: _buildTinderSwipeArea(),
           ),
-        ),
-        body: TabBarView(
-          children: [
-            // スキャンタブ
-            Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.grey[100],
-                  child: Column(
-                    children: [
-                      Text(
-                        _status,
-                        style: Theme.of(context).textTheme.titleMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      if (_isScanning)
-                        const LinearProgressIndicator(color: Colors.pink)
-                      else
-                        Container(height: 4),
-                      const SizedBox(height: 8),
-                      // スキャンボタン
-                      ElevatedButton.icon(
-                        onPressed: _isScanning ? null : _startManualScan,
-                        icon: Icon(_isScanning ? Icons.hourglass_empty : Icons.bluetooth_searching),
-                        label: Text(_isScanning ? "スキャン中..." : "スキャン開始"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey,
-                          disabledForegroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildStatusCard("検出デバイス", _detectedDevices.length.toString(), Icons.bluetooth),
-                          _buildStatusCard("マッチング", _likedDevices.length.toString(), Icons.favorite),
-                          _buildStatusCard("Nope済み", _nopedDevices.length.toString(), Icons.close),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _buildSwipeCards(),
-                ),
-              ],
+          // アクションボタン
+          _buildTinderActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  // Tinder風のヘッダー
+  Widget _buildTinderHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // プロフィールアイコン
+          GestureDetector(
+            onTap: () {}, // プロフィール画面への遷移
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person, size: 20, color: Colors.grey[600]),
             ),
-            // マッチ履歴タブ
-            _buildMatchHistoryTab(),
+          ),
+          const Spacer(),
+          // Tinderロゴ風
+          const Icon(
+            Icons.local_fire_department,
+            color: Color(0xFFFF6B6B),
+            size: 32,
+          ),
+          const Spacer(),
+          // 設定アイコン
+          GestureDetector(
+            onTap: _showSettingsDialog,
+            child: const Icon(
+              Icons.tune,
+              color: Colors.grey,
+              size: 28,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 設定ダイアログ
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('設定'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.bluetooth_searching),
+              title: const Text('スキャン開始'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _startManualScan();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info),
+              title: const Text('ステータス'),
+              subtitle: Text(_status),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tinder風のボトムナビゲーションバー
+  Widget _buildTinderBottomBar() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildBottomNavItem(
+            icon: Icons.local_fire_department,
+            color: const Color(0xFFFF6B6B),
+            isSelected: true,
+            onTap: () {},
+          ),
+          _buildBottomNavItem(
+            icon: Icons.star,
+            color: Colors.blue,
+            isSelected: false,
+            onTap: () {},
+          ),
+          _buildBottomNavItem(
+            icon: Icons.chat_bubble,
+            color: Colors.green,
+            isSelected: false,
+            onTap: () => _showMatchHistory(),
+          ),
+          _buildBottomNavItem(
+            icon: Icons.person,
+            color: Colors.grey,
+            isSelected: false,
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        child: Icon(
+          icon,
+          size: 28,
+          color: isSelected ? color : Colors.grey[400],
+        ),
+      ),
+    );
+  }
+
+  // マッチ履歴を表示
+  void _showMatchHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // ハンドル
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // タイトル
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'マッチ履歴',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            // リスト
+            Expanded(child: _buildMatchHistoryTab()),
           ],
         ),
       ),
     );
   }
 
-  // イベントページを構築
+  // Tinder風のマッチ画面
   Widget _buildEventPage() {
     final event = _currentMatchEvent!;
     final deviceName = event['device_name'] as String;
-    final matchedAt = event['matched_at'] as DateTime;
+    final macAddress = event['mac_address'] as String;
     
     return Scaffold(
-      backgroundColor: Colors.pink[50],
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // 背景の花火エフェクト風
+          Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                colors: [
+                  const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+                  Colors.black,
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // メインイベント表示
-                Container(
-                  padding: const EdgeInsets.all(32.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.pink.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.favorite,
-                        size: 80,
-                        color: Colors.pink,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "💖 マッチング成功！ 💖",
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.pink,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        "特別なイベントが発生しました！",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[700],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                // 閉じるボタン
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: GestureDetector(
+                      onTap: _resumeScanning,
+                      child: Container(
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: Colors.pink[100],
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
                         ),
-                        child: Column(
-                          children: [
-                            Text(
-                              "マッチしたデバイス:",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              deviceName,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.pink,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "時刻: ${_formatDateTime(matchedAt)}",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 24,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 48),
-                // ボタン群
-                Column(
-                  children: [
-                    ElevatedButton(
-                      onPressed: _resumeScanning,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pink,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                      ),
-                      child: const Text(
-                        "スキャンを再開",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: _startChat,
-                      child: const Text(
-                        "チャットを開始",
-                        style: TextStyle(color: Colors.pink),
+                  ),
+                ),
+                const Spacer(),
+                // メイン画面
+                Column(
+                  children: [
+                    // "IT'S A MATCH!" テキスト
+                    const Text(
+                      "IT'S A MATCH!",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "あなたたちはお互いにLikeしました",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 50),
+                    // プロフィール画像を並べて表示
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 自分のアバター
+                        Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                          ),
+                          child: ClipOval(
+                            child: Container(
+                              color: Colors.grey[300],
+                              child: const Icon(
+                                Icons.person,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 30),
+                        // マッチした相手のアバター
+                        Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                          ),
+                          child: ClipOval(
+                            child: _generateAvatar(macAddress, size: 140),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    Text(
+                      deviceName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
+                const Spacer(),
+                // ボタン
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Column(
+                    children: [
+                      // チャットボタン
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _startChat,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF6B6B),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'SAY HELLO',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // スキャンを続けるボタン
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: TextButton(
+                          onPressed: _resumeScanning,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                              side: const BorderSide(color: Colors.white, width: 1),
+                            ),
+                          ),
+                          child: const Text(
+                            'KEEP SWIPING',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -702,7 +1052,7 @@ class _BleTestPageState extends State<BleTestPage> {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: ListTile(
-                  leading: const Icon(Icons.favorite, color: Colors.pink),
+                  leading: _generateAvatar(event['mac_address'], size: 50),
                   title: Text(
                     event['device_name'],
                     style: const TextStyle(fontWeight: FontWeight.bold),
@@ -735,8 +1085,91 @@ class _BleTestPageState extends State<BleTestPage> {
     return '${dateTime.month}/${dateTime.day} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  // スワイプカード形式の画面を構築
-  Widget _buildSwipeCards() {
+  // 利用可能なアバター画像のリスト（assets/avatars内の実際のファイル）
+  static const List<String> _avatarImages = [
+    'assets/avatars/avatar1.png',
+    'assets/avatars/avatar2.png',
+    'assets/avatars/avatar3.png',
+    'assets/avatars/avatar4.png',
+    'assets/avatars/avatar5.png',
+  ];
+
+  // MACアドレスから一意の写真アバターを生成
+  Widget _generateAvatar(String macAddress, {double size = 50}) {
+    // 画像が存在しない場合のフォールバック用
+    if (_avatarImages.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.person,
+          color: Colors.grey[600],
+          size: size * 0.6,
+        ),
+      );
+    }
+    
+    // MACアドレスからハッシュ値を生成して画像を選択
+    final hash = macAddress.hashCode.abs();
+    final imageIndex = hash % _avatarImages.length;
+    final imagePath = _avatarImages[imageIndex];
+    
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          imagePath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // 画像読み込み失敗時のフォールバック
+            _logger.e("アバター画像読み込みエラー: $imagePath");
+            _logger.e("エラー詳細: $error");
+            _logger.e("スタックトレース: $stackTrace");
+            return Container(
+              width: size,
+              height: size,
+              color: Colors.grey[300],
+              child: Icon(
+                Icons.person,
+                color: Colors.grey[600],
+                size: size * 0.6,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+
+  // Tinder風のスワイプエリア
+  Widget _buildTinderSwipeArea() {
     // 未処理のデバイスのみを表示
     final unprocessedDevices = _detectedDevices
         .where((device) => 
@@ -772,153 +1205,365 @@ class _BleTestPageState extends State<BleTestPage> {
 
     final currentDevice = unprocessedDevices[_currentDeviceIndex];
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: GestureDetector(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      child: Stack(
+        children: [
+          // 次のカード（背景）
+          if (unprocessedDevices.length > 1)
+            _buildTinderCard(unprocessedDevices[1], isBackground: true),
+          // 現在のカード（前景）
+          GestureDetector(
+          onHorizontalDragStart: (details) {
+            setState(() {
+              _isDragging = true;
+            });
+          },
+          onHorizontalDragUpdate: (details) {
+            setState(() {
+              _cardOffset = details.localPosition.dx - 200; // カードの中心からのオフセット
+              _cardRotation = _cardOffset / 300; // 回転角度を計算
+            });
+          },
           onHorizontalDragEnd: (details) {
-            // 右スワイプ（Like）
-            if (details.primaryVelocity! > 0) {
-              _likeDevice(currentDevice);
-            }
-            // 左スワイプ（Nope）
-            else if (details.primaryVelocity! < 0) {
-              _nopeDevice(currentDevice);
+            const double threshold = 80.0; // スワイプ判定のしきい値
+            
+            if (_cardOffset > threshold) {
+              // 右スワイプ（Like）
+              _animateCardExit(true, currentDevice);
+            } else if (_cardOffset < -threshold) {
+              // 左スワイプ（Nope）
+              _animateCardExit(false, currentDevice);
+            } else {
+              // スワイプが不十分な場合は元の位置に戻す
+              _resetCardPosition();
             }
           },
-          child: Container(
-            width: double.infinity,
-            height: 400,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
+            child: Transform.translate(
+              offset: Offset(_cardOffset, 0),
+              child: Transform.rotate(
+                angle: _cardRotation * 0.05, // より自然な回転
+                child: Stack(
+                  children: [
+                    _buildTinderCard(currentDevice),
+                    // Like/Nopeオーバーレイ
+                    if (_isDragging) _buildSwipeOverlay(),
+                  ],
                 ),
-              ],
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tinder風のカードを構築
+  Widget _buildTinderCard(Map<String, dynamic> device, {bool isBackground = false}) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      margin: EdgeInsets.all(isBackground ? 8 : 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isBackground ? 0.1 : 0.2),
+            blurRadius: isBackground ? 5 : 20,
+            offset: Offset(0, isBackground ? 2 : 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 背景画像（アバター）
+            _generateAvatar(device['mac_address'], size: double.infinity),
+            // グラデーションオーバーレイ
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                  ],
+                  stops: const [0.0, 0.6, 1.0],
+                ),
+              ),
+            ),
+            // 情報テキスト
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // デバイスアイコン
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.bluetooth,
-                      size: 50,
-                      color: Colors.blue[600],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // デバイス名
-                  Text(
-                    currentDevice['device_name'],
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  
-                  // MACアドレス
-                  Text(
-                    currentDevice['mac_address'],
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  
-                  // RSSI値
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'RSSI: ${currentDevice['rssi']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  
-                  // スワイプ指示
+                  // デバイス名と年齢（風）
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Column(
-                        children: [
-                          Icon(Icons.arrow_back, color: Colors.red[400], size: 30),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Nope',
-                            style: TextStyle(color: Colors.red[400], fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          device['device_name'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
+                        ),
                       ),
-                      Column(
-                        children: [
-                          Icon(Icons.arrow_forward, color: Colors.green[400], size: 30),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Like',
-                            style: TextStyle(color: Colors.green[400], fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Text(
+                        '${(device['rssi'] as int).abs() ~/ 10}', // RSSIから仮の年齢を生成
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w300,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  
-                  // ボタン（タップでもOK）
+                  const SizedBox(height: 4),
+                  // RSSI情報
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      ElevatedButton(
-                        onPressed: () => _nopeDevice(currentDevice),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red[400],
-                          foregroundColor: Colors.white,
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(16),
-                        ),
-                        child: const Icon(Icons.close, size: 30),
+                      const Icon(
+                        Icons.signal_cellular_alt,
+                        color: Colors.white,
+                        size: 16,
                       ),
-                      ElevatedButton(
-                        onPressed: () => _likeDevice(currentDevice),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[400],
-                          foregroundColor: Colors.white,
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(16),
+                      const SizedBox(width: 4),
+                      Text(
+                        'RSSI: ${device['rssi']} dBm',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
                         ),
-                        child: const Icon(Icons.favorite, size: 30),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // スワイプオーバーレイ
+  Widget _buildSwipeOverlay() {
+    String text = '';
+    Color color = Colors.transparent;
+    double rotation = 0;
+    
+    if (_cardOffset > 50) {
+      text = 'LIKE';
+      color = Colors.green;
+      rotation = -0.2;
+    } else if (_cardOffset < -50) {
+      text = 'NOPE';
+      color = Colors.red;
+      rotation = 0.2;
+    }
+    
+    if (text.isEmpty) return const SizedBox.shrink();
+    
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color,
+            width: 4,
+          ),
+        ),
+        child: Center(
+          child: Transform.rotate(
+            angle: rotation,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: color, width: 4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 4,
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  // Tinder風のアクションボタン
+  Widget _buildTinderActionButtons() {
+    final unprocessedDevices = _detectedDevices
+        .where((device) => 
+            !_likedDevices.contains(device['mac_address']) && 
+            !_nopedDevices.contains(device['mac_address']))
+        .toList();
+
+    if (unprocessedDevices.isEmpty) {
+      return const SizedBox(height: 80);
+    }
+
+    final currentDevice = unprocessedDevices[_currentDeviceIndex];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Rewind (未実装)
+          _buildActionButton(
+            icon: Icons.replay,
+            color: Colors.amber,
+            size: 50,
+            onTap: () {},
+          ),
+          // Nope
+          _buildActionButton(
+            icon: Icons.close,
+            color: Colors.red,
+            size: 60,
+            onTap: () => _nopeDevice(currentDevice),
+          ),
+          // Super Like (未実装)
+          _buildActionButton(
+            icon: Icons.star,
+            color: Colors.blue,
+            size: 50,
+            onTap: () {},
+          ),
+          // Like
+          _buildActionButton(
+            icon: Icons.favorite,
+            color: Colors.green,
+            size: 60,
+            onTap: () => _likeDevice(currentDevice),
+          ),
+          // Boost (未実装)
+          _buildActionButton(
+            icon: Icons.flash_on,
+            color: Colors.purple,
+            size: 50,
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required double size,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          color: color,
+          size: size * 0.4,
+        ),
+      ),
+    );
+  }
+
+  // カードの色を取得（スワイプ方向に応じて変化）
+  Color _getCardColor() {
+    if (!_isDragging) return Colors.white;
+    
+    if (_cardOffset > 50) {
+      // 右スワイプ（Like）- 緑っぽく
+      final opacity = (_cardOffset / 150).clamp(0.0, 0.3);
+      return Color.lerp(Colors.white, Colors.green[100], opacity)!;
+    } else if (_cardOffset < -50) {
+      // 左スワイプ（Nope）- 赤っぽく
+      final opacity = (-_cardOffset / 150).clamp(0.0, 0.3);
+      return Color.lerp(Colors.white, Colors.red[100], opacity)!;
+    }
+    
+    return Colors.white;
+  }
+  
+  // カードのボーダーを取得（スワイプ方向に応じて変化）
+  Border? _getCardBorder() {
+    if (!_isDragging) return null;
+    
+    if (_cardOffset > 50) {
+      // 右スワイプ（Like）- 緑のボーダー
+      final opacity = (_cardOffset / 150).clamp(0.0, 1.0);
+      return Border.all(
+        color: Colors.green.withValues(alpha: opacity), 
+        width: 3,
+      );
+    } else if (_cardOffset < -50) {
+      // 左スワイプ（Nope）- 赤のボーダー
+      final opacity = (-_cardOffset / 150).clamp(0.0, 1.0);
+      return Border.all(
+        color: Colors.red.withValues(alpha: opacity), 
+        width: 3,
+      );
+    }
+    
+    return null;
+  }
+  
+  // カードを元の位置に戻すアニメーション
+  void _resetCardPosition() {
+    setState(() {
+      _cardOffset = 0.0;
+      _cardRotation = 0.0;
+      _isDragging = false;
+    });
+  }
+  
+  // カードの退場アニメーション
+  void _animateCardExit(bool isLike, Map<String, dynamic> device) {
+    setState(() {
+      _cardOffset = isLike ? 400.0 : -400.0;
+      _cardRotation = isLike ? 0.3 : -0.3;
+    });
+    
+    // アニメーション完了後に実際の処理を実行
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (isLike) {
+        _likeDevice(device);
+      } else {
+        _nopeDevice(device);
+      }
+      
+      // カードをリセット
+      _resetCardPosition();
+    });
   }
 
   // チャット機能の実装
@@ -1022,6 +1667,9 @@ class _BleTestPageState extends State<BleTestPage> {
       
       // 即座にメッセージを更新
       await _loadMessages();
+      
+      // メッセージ数をカウント
+      _incrementMessageCount();
       
       // 自動返信を送信（1-3秒後）
       _scheduleAutoReply(message);
@@ -1130,6 +1778,147 @@ class _BleTestPageState extends State<BleTestPage> {
     return candidates[randomIndex];
   }
   
+  // メッセージ数をカウントして告白促進をチェック
+  void _incrementMessageCount() {
+    if (_currentChatRoomId == null) return;
+    
+    _messageCountPerRoom[_currentChatRoomId!] = 
+        (_messageCountPerRoom[_currentChatRoomId!] ?? 0) + 1;
+    
+    final count = _messageCountPerRoom[_currentChatRoomId!]!;
+    
+    // 3通目のメッセージで告白促進を表示
+    if (count == 3 && !_confessionPromptShown.contains(_currentChatRoomId!)) {
+      _confessionPromptShown.add(_currentChatRoomId!);
+      _showConfessionPrompt();
+    }
+  }
+  
+  // 告白促進ダイアログを表示
+  void _showConfessionPrompt() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.pink[50],
+        title: const Row(
+          children: [
+            Icon(Icons.favorite, color: Colors.pink, size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '告白しろ！！',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.pink,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.pink[200]!, width: 2),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    '💕 恋のチャンス到来！ 💕',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.pink,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'やりとりが盛り上がってきましたね！\n今がチャンスです！\n\n勇気を出して気持ちを伝えてみませんか？',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[700],
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.lightbulb, color: Colors.amber, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '「いつもお話していて楽しいです！\nもしよろしければ...」',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'まだ早い',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _insertConfessionMessage();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pink,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+            icon: const Icon(Icons.favorite, size: 18),
+            label: const Text(
+              '告白する！',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 告白メッセージをテキストフィールドに挿入
+  void _insertConfessionMessage() {
+    final confessionMessages = [
+      'いつもお話していて楽しいです！もしよろしければ、もっと親しくなりたいです💕',
+      'あなたとのやりとりがとても楽しくて...気持ちを伝えたくて💖',
+      'もしかして...私たち、相性いいかもしれませんね😊もっとお話したいです！',
+      '勇気を出して言います！あなたともっと特別な関係になりたいです💝',
+    ];
+    
+    final random = DateTime.now().millisecondsSinceEpoch % confessionMessages.length;
+    _messageController.text = confessionMessages[random];
+  }
+
   // チャットから戻る
   void _exitChat() {
     _messageRefreshTimer?.cancel();
@@ -1146,7 +1935,18 @@ class _BleTestPageState extends State<BleTestPage> {
   Widget _buildChatPage() {
     return Scaffold(
       appBar: AppBar(
-        title: Text("💬 $_currentPartnerName"),
+        title: Row(
+          children: [
+            _generateAvatar(_currentPartnerMac ?? '', size: 35),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _currentPartnerName ?? '',
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.pink,
         foregroundColor: Colors.white,
         leading: IconButton(
