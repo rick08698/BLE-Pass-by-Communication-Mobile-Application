@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/personality_service.dart';
-import 'main.dart';
+import 'avatar_group_selection_page.dart';
 
 class PersonalitySelectionPage extends StatefulWidget {
   const PersonalitySelectionPage({Key? key}) : super(key: key);
@@ -19,13 +19,13 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
     'ja': {
       'title': '好みのタイプを選択',
       'subtitle': 'マッチした相手の性格タイプを選んでください',
-      'start_button': 'アプリを開始',
+      'start_button': '次へ',
       'select_first': '性格を選択してください',
     },
     'en': {
       'title': 'Select Your Preferred Type',
       'subtitle': 'Choose the personality type for your matched partners',
-      'start_button': 'Start App',
+      'start_button': 'Next',
       'select_first': 'Please select a personality',
     },
   };
@@ -342,10 +342,10 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
       // ユーザーの好みの性格を保存
       _personalityService.setUserPreferredPersonality(_selectedPersonality!);
       
-      // メインアプリに遷移（選択した言語を引き渡し）
-      Navigator.of(context).pushReplacement(
+      // アバターグループ選択画面に遷移
+      Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => BleTestPage(language: _currentLanguage),
+          builder: (context) => AvatarGroupSelectionPage(language: _currentLanguage),
         ),
       );
     }
