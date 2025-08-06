@@ -7,6 +7,9 @@ class PersonalityService {
 
   // ユーザーの好みの性格
   String? _userPreferredPersonality;
+  
+  // ユーザーの選択したアバターグループ
+  String? _selectedAvatarGroup;
 
   // 利用可能な性格タイプ（拡張可能）
   static const List<Map<String, dynamic>> availablePersonalities = [
@@ -22,7 +25,35 @@ class PersonalityService {
     {'style': 'intellectual', 'name': '知的'},
   ];
 
-  // アバター画像のリスト
+  // アバターグループの定義
+  static const Map<String, Map<String, dynamic>> avatarGroups = {
+    'anime': {
+      'name_ja': 'アニメ風',
+      'name_en': 'Anime Style',
+      'description_ja': 'かわいいアニメキャラクター風のアバター',
+      'description_en': 'Cute anime character style avatars',
+      'avatars': ['assets/avatars/avatar1.png', 'assets/avatars/avatar2.png'],
+      'color': 0xFFFF9AA2, // ピンク
+    },
+    'realistic': {
+      'name_ja': 'リアル風',
+      'name_en': 'Realistic Style', 
+      'description_ja': '写実的でリアルなアバター',
+      'description_en': 'Photorealistic and natural avatars',
+      'avatars': ['assets/avatars/avatar3.png', 'assets/avatars/avatar4.png'],
+      'color': 0xFF4ECDC4, // ティール
+    },
+    'illustration': {
+      'name_ja': 'イラスト風',
+      'name_en': 'Illustration Style',
+      'description_ja': 'おしゃれなイラスト風アバター',
+      'description_en': 'Stylish illustration style avatars',
+      'avatars': ['assets/avatars/avatar5.png'],
+      'color': 0xFFFFE66D, // イエロー
+    },
+  };
+
+  // アバター画像のリスト（後方互換性のため）
   static const List<String> avatarImages = [
     'assets/avatars/avatar1.png',
     'assets/avatars/avatar2.png',
@@ -40,9 +71,18 @@ class PersonalityService {
     'memories': '何か楽しい思い出ありますか？',
   };
 
-  // MACアドレスからアバター画像を取得
+  // MACアドレスからアバター画像を取得（選択されたグループから）
   String generateAvatarPath(String macAddress) {
     final hash = macAddress.hashCode.abs();
+    
+    // アバターグループが選択されている場合
+    if (_selectedAvatarGroup != null && avatarGroups.containsKey(_selectedAvatarGroup)) {
+      final groupAvatars = avatarGroups[_selectedAvatarGroup]!['avatars'] as List<String>;
+      final index = hash % groupAvatars.length;
+      return groupAvatars[index];
+    }
+    
+    // 選択されていない場合は全体からランダム
     final index = hash % avatarImages.length;
     return avatarImages[index];
   }
@@ -55,6 +95,26 @@ class PersonalityService {
   // ユーザーの好みの性格を取得
   String? getUserPreferredPersonality() {
     return _userPreferredPersonality;
+  }
+
+  // アバターグループを設定
+  void setSelectedAvatarGroup(String groupKey) {
+    _selectedAvatarGroup = groupKey;
+  }
+
+  // 選択されたアバターグループを取得
+  String? getSelectedAvatarGroup() {
+    return _selectedAvatarGroup;
+  }
+
+  // アバターグループの情報を取得
+  Map<String, dynamic>? getAvatarGroupInfo(String groupKey) {
+    return avatarGroups[groupKey];
+  }
+
+  // 利用可能なアバターグループのリストを取得
+  List<String> getAvailableAvatarGroups() {
+    return avatarGroups.keys.toList();
   }
 
   // マッチ時にユーザーの好みに基づいて性格を割り当て

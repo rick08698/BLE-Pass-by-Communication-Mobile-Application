@@ -1876,7 +1876,15 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: _itemDefinitions.entries.map((entry) {
+                children: _itemDefinitions.entries.where((entry) {
+                  final itemId = entry.key;
+                  // タバコアイテムはアニメ風グループ選択時のみ表示
+                  if (itemId == 'cigarette') {
+                    final selectedGroup = PersonalityService().getSelectedAvatarGroup();
+                    return selectedGroup == 'anime';
+                  }
+                  return true;
+                }).map((entry) {
                   final itemId = entry.key;
                   final item = entry.value;
                   return _buildItemCard(
