@@ -529,79 +529,6 @@ class _BleTestPageState extends State<BleTestPage> with SingleTickerProviderStat
       'send_gift': 'Send Gift',
       'scan_status': 'Status',
     },
-    'ja': {
-      'app_title': 'Bluetooth Love',
-      'app_subtitle': '~運命の出会いはBluetooth接続から~',
-      'start_button': 'スタート',
-      'language_selection': '言語選択',
-      'select_language': '言語を選択してください',
-      'japanese': '日本語',
-      'english': 'English',
-      'status_preparing': '準備中...',
-      'status_scanning': 'スキャン中...',
-      'status_location_getting': '位置情報取得中...',
-      'scanning': 'スキャン中...',
-      'scan_start': 'スキャン開始',
-      'scan_complete': 'スキャン完了',
-      'device_detected': '件検出',
-      're_scan': '再スキャンまたはスワイプしてください',
-      'profile': 'プロフィール',
-      'profile_edit': 'プロフィール編集',
-      'name': '名前',
-      'name_hint': '名前を入力してください',
-      'age': '年齢',
-      'age_hint': '年齢を入力してください',
-      'bio': '自己紹介',
-      'bio_hint': '自己紹介を入力してください',
-      'save': '保存',
-      'profile_updated': 'プロフィールを更新しました！',
-      'match_history': 'マッチ履歴',
-      'location_analysis': '位置情報分析',
-      'no_location': '位置情報が取得できていません。スキャンを実行してください。',
-      'analyzing_location': '位置情報を分析中...',
-      'no_frequent_devices': 'この場所では常連デバイスが見つかりませんでした',
-      'scan_same_location': '同じ場所で複数回スキャンしてください',
-      'analysis_target_location': '📍 分析対象位置',
-      'latitude': '緯度',
-      'longitude': '経度',
-      'accuracy': '精度',
-      'frequent_devices': '常連デバイス',
-      'detection_count': '検知回数',
-      'first_seen': '初回',
-      'last_seen': '最新',
-      'times': '回',
-      'close': '閉じる',
-      'permission_required': '権限が必要です - 設定から許可してください',
-      'permission_checking': '権限を確認中...',
-      'permission_insufficient': '権限が不足しています',
-      'settings': '設定',
-      'language_settings': '言語設定',
-      'match_time': 'マッチ時刻',
-      'no_matches': 'まだマッチングがありません',
-      'match_info': '同じBLEデバイスを5回検知するとマッチングします',
-      'detection_time': '検出時刻',
-      'no_devices_detected': 'まだデバイスが検出されていません',
-      'searching_devices': 'BLEデバイスを検索中...',
-      'swipe_instruction': '右スワイプでLike、左スワイプでNopeできます',
-      'price': '価格',
-      'points': 'ポイント',
-      'owned_count': '所有数',
-      'items': '個',
-      'purchase': '購入する',
-      'match_success': 'マッチング成功!',
-      'device_name': 'デバイス名',
-      'encountered_5_times': 'このデバイスと5回以上遭遇しました！',
-      'nearby_possibility': 'お近くにいる可能性があります。',
-      'analysis_error': '分析エラー',
-      'chat_start_failed': 'チャット開始に失敗しました',
-      'message_send_failed': 'メッセージ送信に失敗しました',
-      'fight_on': '頑張る！',
-      'no_items_owned': 'アイテムを持っていません',
-      'start_chat': 'チャットを開始',
-      'items_list': 'アイテム一覧',
-      'send_gift': 'ギフトを送る',
-      'scan_status': 'ステータス',
-    },
   };
 
   String _getText(String key) {
@@ -670,151 +597,561 @@ class _BleTestPageState extends State<BleTestPage> with SingleTickerProviderStat
   static const String _geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
   final Map<String, List<Map<String, String>>> _conversationHistory = {}; // チャットルームごとの会話履歴
   
-  // 話題選択用のユーザー定型文
-  static const Map<String, String> _topicUserMessages = {
-    'weather': '今日はいい天気ですね！',
-    'hobbies': '何か趣味とかありますか？',
-    'food': '美味しいお店とか知ってますか？',
-    'future': '将来の夢とかありますか？',
-    'memories': '何か楽しい思い出ありますか？',
-  };
-
-  // 話題選択用の事前準備済み返答パターン（定型文に対する返答）
-  static const Map<String, Map<String, List<String>>> _topicResponses = {
+  // 話題選択用のユーザー定型文（多言語対応）
+  static const Map<String, Map<String, String>> _topicUserMessages = {
     'weather': {
-      'aggressive': [
-        'チッ、天気の話かよ💢 どうでもいいだろそんなもん',
-        'うぜぇな...外なんか出たくねーよ😠',
-        '天気がいい？知るかボケ💢 ダルいんだよ'
-      ],
-      'seductive': [
-        'あらぁ〜♡ いい天気だと気分も高揚しちゃうわね😘',
-        'こんな日は...どこか二人きりでお散歩したいわ💋',
-        'お日様のように...私も熱くなっちゃう♡🔥'
-      ],
-      'religious': [
-        '神様が与えてくださった素晴らしい天気ですね🙏',
-        'この美しい空は神の愛の表れです✨ 感謝しましょう🕊️',
-        '天の恵みに感謝して祈りを捧げましょう💒'
-      ],
-      'researcher': [
-        '興味深いですね📊 気象データによると今日の晴天確率は89%でした',
-        '天候パターンの統計的分析📈 こういう日の人間の行動変化を研究したいですね🔬',
-        '気象学的に見ると🧪 高気圧の影響で快晴が続いています'
-      ],
-      'kansai': [
-        'ええ天気やなぁ〜😂 たこ焼き焼くのに最高やで〜',
-        'そやかて〜🤣 こんな日は道頓堀でも歩こかぁ〜',
-        'ほんまええ天気やねん😆 洗濯もんがよう乾くわぁ〜'
-      ]
+      'ja': '今日はいい天気ですね！',
+      'en': 'What nice weather we\'re having today!',
     },
     'hobbies': {
-      'aggressive': [
-        '趣味？酒とタバコに決まってんだろ💢 他に何があんだよ',
-        'チッ、趣味なんてダルいもんねーよ😤',
-        'うるせぇな...人にもよるだろうが💢'
-      ],
-      'seductive': [
-        'あらぁ〜♡ 私の趣味は...大人の楽しみよ😘💋',
-        'うふふ♡ 夜の趣味なら色々あるわ🔥',
-        '趣味って言っていいのかしら...💕 もっと刺激的なことが好きなの♡'
-      ],
-      'religious': [
-        '私の趣味は祈りと聖書の研究です🙏 あなたも一緒にいかがですか？',
-        '神様への信仰が私の生きがいです✨ 教会でのボランティアも楽しいですよ🕊️',
-        '聖書の勉強会を開いています💒 ぜひ参加してください🙏'
-      ],
-      'researcher': [
-        '研究が私の趣味であり仕事です📊 データ分析に夢中になってます',
-        '論文執筆📈 学会発表🔬 研究こそが人生の醍醐味ですね',
-        '統計学の美しさを理解できる人は少ないんです🧪 一緒に研究しませんか？'
-      ],
-      'kansai': [
-        'たこ焼き作りが趣味やねん😂 今度食べに来ぃや〜',
-        'そやかて〜🤣 漫才見るのも好きやで〜 笑いが一番や！',
-        'ほんまに〜😆 阪神タイガースの応援も趣味やで〜'
-      ]
+      'ja': '何か趣味とかありますか？',
+      'en': 'Do you have any hobbies?',
     },
     'food': {
-      'aggressive': [
-        '美味い店？知らねーよ💢 コンビニ弁当で十分だろ',
-        'チッ、グルメ気取りかよ😠 酒のつまみがあればいいんだよ',
-        'うぜぇ...飯なんて腹に入ればなんでもいいだろ💢'
-      ],
-      'seductive': [
-        'あらぁ〜♡ 美味しいものは...夜のお楽しみの後がいいわね😘',
-        'うふふ♡ 精力のつく料理を知ってるの💋 今度作ってあげる🔥',
-        '食事も大事だけど...もっと大事なことがあるでしょう？♡💕'
-      ],
-      'religious': [
-        '神様からの恵みの食事に感謝しています🙏',
-        '聖書にも「パンのみにて生くるにあらず」とありますね✨',
-        '教会での愛餐会🕊️ みんなで分け合う食事は格別です💒'
-      ],
-      'researcher': [
-        '栄養学的データ📊 バランスの取れた食事が重要ですね',
-        '食文化の人類学的研究📈 非常に興味深い分野です🔬',
-        '味覚の科学的分析🧪 一緒に研究してみませんか？'
-      ],
-      'kansai': [
-        'そら〜たこ焼きに決まってるやん😂 何個でも食べられるで〜',
-        'そやかて〜🤣 お好み焼きも最高やで〜 関西の魂や！',
-        'ほんまに〜😆 551の豚まんも忘れたらあかんで〜'
-      ]
+      'ja': '美味しいお店とか知ってますか？',
+      'en': 'Do you know any good restaurants?',
     },
     'future': {
-      'aggressive': [
-        '将来？知るかよ💢 今日を生きるので精一杯だろうが',
-        'チッ、夢なんて持ってどうすんだよ😤 現実見ろよ',
-        'うるせぇな...先のことなんてわかるわけねーだろ💢'
-      ],
-      'seductive': [
-        'あらぁ〜♡ 将来は...もっと魅力的な女性になりたいわ😘',
-        'うふふ♡ 夢は秘密よ💋 でも...あなたと一緒なら🔥',
-        '将来のことより...今この瞬間が大切よね♡💕'
-      ],
-      'religious': [
-        '神様のご計画に従って歩んでいきたいです🙏',
-        'より多くの人に神の愛を伝えることが私の使命です✨',
-        '天国で神様にお会いするのが最終的な目標です🕊️💒'
-      ],
-      'researcher': [
-        '将来の研究計画📊 10年後には教授になっていたいですね',
-        '学術界への貢献📈 ノーベル賞も夢ではありません🔬',
-        '次世代の研究者育成🧪 一緒に研究の道を歩みませんか？'
-      ],
-      'kansai': [
-        'そやなぁ〜😂 将来はたこ焼き屋でも開こかなぁ〜',
-        'そやかて〜🤣 関西弁で世界を笑わせたいねん😆',
-        'ほんまに〜 大阪のおばちゃんみたいになりたいわぁ〜🥴'
-      ]
+      'ja': '将来の夢とかありますか？',
+      'en': 'Do you have any dreams for the future?',
     },
     'memories': {
-      'aggressive': [
-        '思い出？ろくなもんじゃねーよ💢 忘れたいことばっかりだ',
-        'チッ、昔の話なんてどうでもいいだろ😠',
-        'うぜぇ...過去なんて振り返ってもしょうがねーよ💢'
-      ],
-      'seductive': [
-        'あらぁ〜♡ 思い出話...大人の秘密がいっぱいよ😘',
-        'うふふ♡ 刺激的な思い出がたくさんあるの💋',
-        '甘い思い出♡ でも今夜はもっと甘くしない？🔥💕'
-      ],
-      'religious': [
-        '神様に導かれた素晴らしい体験がたくさんあります🙏',
-        '洗礼を受けた日の感動✨ 生涯忘れられません🕊️',
-        '教会での出会いや奇跡💒 神の愛を感じる日々です'
-      ],
-      'researcher': [
-        '研究での発見の瞬間📊 データが美しく並んだ時の感動です',
-        '初めて論文が採択された日📈 人生最高の思い出ですね🔬',
-        '学会での議論🧪 知的興奮に満ちた体験でした'
-      ],
-      'kansai': [
-        'そやなぁ〜😂 初めてたこ焼き作った時の思い出やなぁ〜',
-        'そやかて〜🤣 子供の頃の祭りの思い出が一番や😆',
-        'ほんまに〜 阪神が優勝した時は泣いたで〜🥴'
-      ]
+      'ja': '何か楽しい思い出ありますか？',
+      'en': 'Do you have any fond memories?',
+    },
+  };
+
+  // 話題選択用の事前準備済み返答パターン（多言語対応）
+  static const Map<String, Map<String, Map<String, List<String>>>> _topicResponses = {
+    'weather': {
+      'ja': {
+        'gentle': [
+          'とても良いお天気ですね😊',
+          '気持ちのいい日ですね✨',
+          'お散歩日和ですね🌸'
+        ],
+        'cool': [
+          'そうですね😎',
+          'まあまあの天気だね👍',
+          '悪くない天気だな🤔'
+        ],
+        'cute': [
+          'わーい！いいお天気〜🥰',
+          'お日様が気持ちいいね☀️',
+          'きれいな空だね〜💕'
+        ],
+        'aggressive': [
+          'チッ、天気の話かよ💢 どうでもいいだろそんなもん',
+          'うぜぇな...外なんか出たくねーよ😠',
+          '天気がいい？知るかボケ💢 ダルいんだよ'
+        ],
+        'seductive': [
+          'あらぁ〜♡ いい天気だと気分も高揚しちゃうわね😘',
+          'こんな日は...どこか二人きりでお散歩したいわ💋',
+          'お日様のように...私も熱くなっちゃう♡🔥'
+        ],
+        'cheerful': [
+          'やったー！最高の天気だね〜😆',
+          'こんな日は外で遊びたくなる🎉',
+          'テンション上がる天気だ〜✨'
+        ],
+        'shy': [
+          'あ...はい、いい天気ですね💦',
+          'そうですね...お天気良くて😳',
+          'うん...きれいな空だね...☺️'
+        ],
+        'mysterious': [
+          'フフ...天気も運命ですね🌙',
+          '空が何かを語りかけているような...✨',
+          '今日は特別な日になりそう...🔮'
+        ],
+        'energetic': [
+          'おー！最高の天気だぜ💪',
+          'こんな日は体を動かしたくなる🔥',
+          'パワーがみなぎってくるな⚡'
+        ],
+        'intellectual': [
+          '気象データによると晴天確率が高いですね📚',
+          '統計的に見ても良好な天候です🤓',
+          '科学的に分析すると最適な気候条件ですね💭'
+        ],
+      },
+      'en': {
+        'gentle': [
+          'What a beautiful day😊',
+          'It\'s such lovely weather✨',
+          'Perfect day for a walk🌸'
+        ],
+        'cool': [
+          'Yeah, not bad😎',
+          'Decent weather👍',
+          'It\'s alright🤔'
+        ],
+        'cute': [
+          'Yay! Such nice weather🥰',
+          'The sunshine feels so good☀️',
+          'What a pretty sky💕'
+        ],
+        'aggressive': [
+          'Tch, talking about weather💢 Who cares about that crap',
+          'Annoying... don\'t wanna go outside😠',
+          'Good weather? I don\'t give a damn💢'
+        ],
+        'seductive': [
+          'Oh my♡ Nice weather gets me excited😘',
+          'On days like this... I want to take a romantic walk💋',
+          'Like the sun... I\'m getting hot too♡🔥'
+        ],
+        'cheerful': [
+          'Awesome! Perfect weather😆',
+          'Days like this make me want to play outside🎉',
+          'This weather is so energizing✨'
+        ],
+        'shy': [
+          'Ah... yes, nice weather💦',
+          'Yeah... the weather is good😳',
+          'Um... pretty sky...☺️'
+        ],
+        'mysterious': [
+          'Hmm... weather is destiny too🌙',
+          'The sky seems to be telling us something...✨',
+          'Today feels like a special day...🔮'
+        ],
+        'energetic': [
+          'Yeah! Awesome weather💪',
+          'Days like this make me want to move🔥',
+          'I can feel the power surging⚡'
+        ],
+        'intellectual': [
+          'According to meteorological data, high probability of clear skies📚',
+          'Statistically speaking, excellent weather conditions🤓',
+          'Scientifically analyzed, optimal climate conditions💭'
+        ],
+      },
+    },
+    'hobbies': {
+      'ja': {
+        'gentle': [
+          '読書が好きです😊 あなたはどんな本が好きですか？',
+          '散歩をするのが趣味です✨ 自然を見ているとほっとします',
+          '料理を作るのが楽しいです🌸 今度何か作ってあげますね'
+        ],
+        'cool': [
+          '特に決まった趣味はないな😎',
+          'まあ、映画でも見るかな👍',
+          '音楽を聞くくらいだね🤔'
+        ],
+        'cute': [
+          'わーい！手芸が大好きなの🥰',
+          'お菓子作りが趣味だよ〜☀️',
+          '可愛いものを集めるのが好き💕'
+        ],
+        'aggressive': [
+          '趣味？酒とタバコに決まってんだろ💢 他に何があんだよ',
+          'チッ、趣味なんてダルいもんねーよ😤',
+          'うるせぇな...人にもよるだろうが💢'
+        ],
+        'seductive': [
+          'あらぁ〜♡ 私の趣味は...大人の楽しみよ😘💋',
+          'うふふ♡ 夜の趣味なら色々あるわ🔥',
+          '趣味って言っていいのかしら...💕 もっと刺激的なことが好きなの♡'
+        ],
+        'cheerful': [
+          'スポーツが大好き〜😆 一緒に運動しない？',
+          'ダンスが趣味なの🎉 楽しいよ〜',
+          'カラオケで歌うのが最高✨'
+        ],
+        'shy': [
+          'あ...読書が好きです💦',
+          'そうですね...映画を見るくらい😳',
+          'うん...静かな趣味が好き...☺️'
+        ],
+        'mysterious': [
+          'フフ...秘密の趣味があります🌙',
+          '占いや神秘的なことに興味が...✨',
+          '夜空を眺めるのが好きですね🔮'
+        ],
+        'energetic': [
+          'おー！筋トレが趣味だぜ💪',
+          'ロッククライミングとかやってる🔥',
+          'アウトドア全般が大好きだ⚡'
+        ],
+        'intellectual': [
+          '学術研究が私の趣味ですね📚',
+          '論文を読むのが楽しいです🤓',
+          '知識を深めることに情熱を注いでいます💭'
+        ]
+      },
+      'en': {
+        'gentle': [
+          'I love reading😊 What kind of books do you like?',
+          'Walking is my hobby✨ Nature makes me feel peaceful',
+          'I enjoy cooking🌸 I\'ll make something for you sometime'
+        ],
+        'cool': [
+          'Don\'t really have specific hobbies😎',
+          'Maybe watch movies sometimes👍',
+          'Listen to music, I guess🤔'
+        ],
+        'cute': [
+          'Yay! I love crafts🥰',
+          'Baking is my hobby☀️',
+          'I like collecting cute things💕'
+        ],
+        'aggressive': [
+          'Hobbies? Drinking and smoking, obviously💢 What else is there',
+          'Tch, hobbies are such a pain😤',
+          'Annoying... depends on the person💢'
+        ],
+        'seductive': [
+          'Oh my♡ My hobbies are... adult pleasures😘💋',
+          'Hehe♡ I have various nighttime hobbies🔥',
+          'Can I call it a hobby...💕 I prefer more exciting things♡'
+        ],
+        'cheerful': [
+          'I love sports😆 Want to exercise together?',
+          'Dancing is my hobby🎉 It\'s so fun',
+          'Singing karaoke is the best✨'
+        ],
+        'shy': [
+          'Ah... I like reading💦',
+          'Well... watching movies mostly😳',
+          'Um... I prefer quiet hobbies...☺️'
+        ],
+        'mysterious': [
+          'Hmm... I have secret hobbies🌙',
+          'I\'m interested in fortune telling and mystical things...✨',
+          'I like gazing at the night sky🔮'
+        ],
+        'energetic': [
+          'Yeah! Weight training is my hobby💪',
+          'I do rock climbing and stuff🔥',
+          'Love all outdoor activities⚡'
+        ],
+        'intellectual': [
+          'Academic research is my hobby📚',
+          'I enjoy reading papers🤓',
+          'I\'m passionate about deepening knowledge💭'
+        ]
+      }
+    },
+    'food': {
+      'ja': {
+        'gentle': [
+          '美味しいお店、知っていますよ😊 今度一緒に行きませんか？',
+          '手作り料理が一番ですね✨ 心を込めて作ります',
+          'みんなで食べる食事が幸せです🌸'
+        ],
+        'cool': [
+          'まあ、それなりに知ってるかな😎',
+          '特にこだわりはないね👍',
+          '食べられればいいよ🤔'
+        ],
+        'cute': [
+          'わーい！スイーツが大好き🥰',
+          '可愛いカフェを知ってるよ☀️',
+          '美味しいものって幸せだよね💕'
+        ],
+        'aggressive': [
+          '美味い店？知らねーよ💢 コンビニ弁当で十分だろ',
+          'チッ、グルメ気取りかよ😠 酒のつまみがあればいいんだよ',
+          'うぜぇ...飯なんて腹に入ればなんでもいいだろ💢'
+        ],
+        'seductive': [
+          'あらぁ〜♡ 美味しいものは...夜のお楽しみの後がいいわね😘',
+          'うふふ♡ 精力のつく料理を知ってるの💋 今度作ってあげる🔥',
+          '食事も大事だけど...もっと大事なことがあるでしょう？♡💕'
+        ],
+        'cheerful': [
+          '美味しいお店いっぱい知ってる〜😆',
+          'みんなでワイワイ食べるのが好き🎉',
+          '食べることって最高だよね✨'
+        ],
+        'shy': [
+          'あ...いくつか知ってます💦',
+          'そうですね...美味しいお店😳',
+          'うん...一緒に食べられたら...☺️'
+        ],
+        'mysterious': [
+          'フフ...秘密のお店を知っています🌙',
+          '深夜にひっそりと営業している店が...✨',
+          '食事にも運命があるのです🔮'
+        ],
+        'energetic': [
+          'おー！美味い店なら任せろ💪',
+          'がっつり食べられる店が最高だ🔥',
+          '食べて力をつけないとな⚡'
+        ],
+        'intellectual': [
+          '栄養学的に優れた食事を重視します📚',
+          '食文化の研究も興味深いですね🤓',
+          '科学的に分析された料理法が好みです💭'
+        ]
+      },
+      'en': {
+        'gentle': [
+          'I know some nice places😊 Would you like to go together?',
+          'Homemade meals are the best✨ I cook with love',
+          'Eating together makes me happy🌸'
+        ],
+        'cool': [
+          'Yeah, I know a few decent places😎',
+          'Don\'t really have preferences👍',
+          'Food is food🤔'
+        ],
+        'cute': [
+          'Yay! I love sweets🥰',
+          'I know cute cafes☀️',
+          'Yummy food makes me happy💕'
+        ],
+        'aggressive': [
+          'Good restaurants? I don\'t know💢 Convenience store food is fine',
+          'Tch, acting like a gourmet😠 Just need something with alcohol',
+          'Annoying... food just needs to fill your stomach💢'
+        ],
+        'seductive': [
+          'Oh my♡ Good food is... best after nighttime fun😘',
+          'Hehe♡ I know stamina-boosting dishes💋 I\'ll cook for you🔥',
+          'Food is important but... there are more important things♡💕'
+        ],
+        'cheerful': [
+          'I know tons of delicious places😆',
+          'I love eating with everyone🎉',
+          'Eating is the best thing ever✨'
+        ],
+        'shy': [
+          'Ah... I know a few places💦',
+          'Well... some good restaurants😳',
+          'Um... it would be nice to eat together...☺️'
+        ],
+        'mysterious': [
+          'Hmm... I know secret places🌙',
+          'There are hidden restaurants that open late at night...✨',
+          'Even meals have destiny🔮'
+        ],
+        'energetic': [
+          'Yeah! Leave the good restaurants to me💪',
+          'Places with hearty meals are the best🔥',
+          'Gotta eat to stay strong⚡'
+        ],
+        'intellectual': [
+          'I prefer nutritionally excellent meals📚',
+          'Food culture research is fascinating🤓',
+          'I prefer scientifically analyzed cooking methods💭'
+        ]
+      }
+    },
+    'future': {
+      'ja': {
+        'gentle': [
+          '将来は平和で温かい家庭を築きたいです😊',
+          'みんなが笑顔でいられる世界になったらいいですね✨',
+          'あなたと一緒に歩んでいけたら幸せです🌸'
+        ],
+        'cool': [
+          '特に決まった夢はないな😎',
+          'まあ、その時その時で考える👍',
+          '流れに任せるタイプかな🤔'
+        ],
+        'cute': [
+          'わーい！素敵な未来になりそう🥰',
+          '夢がいっぱいあるの☀️',
+          '幸せな毎日が続きますように💕'
+        ],
+        'aggressive': [
+          '将来？知るかよ💢 今日を生きるので精一杯だろうが',
+          'チッ、夢なんて持ってどうすんだよ😤 現実見ろよ',
+          'うるせぇな...先のことなんてわかるわけねーだろ💢'
+        ],
+        'seductive': [
+          'あらぁ〜♡ 将来は...もっと魅力的な女性になりたいわ😘',
+          'うふふ♡ 夢は秘密よ💋 でも...あなたと一緒なら🔥',
+          '将来のことより...今この瞬間が大切よね♡💕'
+        ],
+        'cheerful': [
+          '未来は明るいよ〜😆',
+          'やりたいことがいっぱいある🎉',
+          '毎日が楽しみで仕方ない✨'
+        ],
+        'shy': [
+          'あ...将来のことはまだ💦',
+          'そうですね...考え中です😳',
+          'うん...一緒にいられたら...☺️'
+        ],
+        'mysterious': [
+          'フフ...運命が導いてくれるでしょう🌙',
+          '未来は謎に満ちています...✨',
+          'すべては星の導きのままに🔮'
+        ],
+        'energetic': [
+          'おー！未来に向かって突き進むぜ💪',
+          '夢に向かって全力だ🔥',
+          'やる気満々で頑張る⚡'
+        ],
+        'intellectual': [
+          '研究を続けて学術界に貢献したいです📚',
+          '知識を深めることが私の使命です🤓',
+          '論理的に計画された未来を描いています💭'
+        ]
+      },
+      'en': {
+        'gentle': [
+          'I want to build a peaceful, warm family😊',
+          'I hope for a world where everyone can smile✨',
+          'I\'d be happy to walk through life with you🌸'
+        ],
+        'cool': [
+          'Don\'t really have specific dreams😎',
+          'I think about things as they come👍',
+          'I go with the flow🤔'
+        ],
+        'cute': [
+          'Yay! The future looks wonderful🥰',
+          'I have so many dreams☀️',
+          'Hope every day will be happy💕'
+        ],
+        'aggressive': [
+          'Future? Who cares💢 I\'m barely getting through today',
+          'Tch, what\'s the point of dreams😤 Face reality',
+          'Annoying... who knows what will happen💢'
+        ],
+        'seductive': [
+          'Oh my♡ In the future... I want to become even more attractive😘',
+          'Hehe♡ My dreams are secret💋 But... if it\'s with you🔥',
+          'The future matters less... this moment is important♡💕'
+        ],
+        'cheerful': [
+          'The future is bright😆',
+          'I have so many things I want to do🎉',
+          'I can\'t wait for each day✨'
+        ],
+        'shy': [
+          'Ah... I haven\'t decided about the future💦',
+          'Well... I\'m still thinking😳',
+          'Um... if we could be together...☺️'
+        ],
+        'mysterious': [
+          'Hmm... destiny will guide me🌙',
+          'The future is full of mysteries...✨',
+          'Everything follows the stars\' guidance🔮'
+        ],
+        'energetic': [
+          'Yeah! I\'m charging toward the future💪',
+          'Going full speed toward my dreams🔥',
+          'I\'m pumped and ready to work hard⚡'
+        ],
+        'intellectual': [
+          'I want to continue research and contribute to academia📚',
+          'Deepening knowledge is my mission🤓',
+          'I\'m planning a logically structured future💭'
+        ]
+      }
+    },
+    'memories': {
+      'ja': {
+        'gentle': [
+          '家族と過ごした温かい時間が一番の思い出です😊',
+          '優しい言葉をかけてもらった時のことを覚えています✨',
+          'みんなで笑い合った日々が宝物です🌸'
+        ],
+        'cool': [
+          '特に印象的な思い出はないかな😎',
+          'まあ、それなりにあるけどね👍',
+          '普通の日常が思い出かな🤔'
+        ],
+        'cute': [
+          'わーい！楽しい思い出がいっぱい🥰',
+          '可愛いものを見つけた時が幸せ☀️',
+          'みんなと遊んだことが一番好き💕'
+        ],
+        'aggressive': [
+          '思い出？ろくなもんじゃねーよ💢 忘れたいことばっかりだ',
+          'チッ、昔の話なんてどうでもいいだろ😠',
+          'うぜぇ...過去なんて振り返ってもしょうがねーよ💢'
+        ],
+        'seductive': [
+          'あらぁ〜♡ 思い出話...大人の秘密がいっぱいよ😘',
+          'うふふ♡ 刺激的な思い出がたくさんあるの💋',
+          '甘い思い出♡ でも今夜はもっと甘くしない？🔥💕'
+        ],
+        'cheerful': [
+          '楽しい思い出がたくさんあるよ〜😆',
+          'みんなで大笑いした時が最高🎉',
+          '毎日が思い出作りだね✨'
+        ],
+        'shy': [
+          'あ...静かな思い出が好きです💦',
+          'そうですね...一人の時間も大切😳',
+          'うん...穏やかな日々が思い出...☺️'
+        ],
+        'mysterious': [
+          'フフ...不思議な体験をしたことが🌙',
+          '夢なのか現実なのか分からない思い出が...✨',
+          '運命的な出会いの記憶があります🔮'
+        ],
+        'energetic': [
+          'おー！アクティブな思い出がいっぱいだ💪',
+          '冒険した時のことが忘れられない🔥',
+          '挑戦し続けてきた日々が宝物だ⚡'
+        ],
+        'intellectual': [
+          '研究で新発見をした瞬間が印象的です📚',
+          '知識を得た時の喜びが思い出です🤓',
+          '学術的な議論を交わした日々が懐かしいです💭'
+        ]
+      },
+      'en': {
+        'gentle': [
+          'Warm times with family are my best memories😊',
+          'I remember when someone said kind words to me✨',
+          'Days filled with laughter are my treasure🌸'
+        ],
+        'cool': [
+          'Don\'t really have impressive memories😎',
+          'I guess I have some decent ones👍',
+          'Ordinary daily life is my memory🤔'
+        ],
+        'cute': [
+          'Yay! I have lots of fun memories🥰',
+          'Finding cute things makes me happy☀️',
+          'Playing with everyone is my favorite💕'
+        ],
+        'aggressive': [
+          'Memories? They\'re all crap💢 Just things I want to forget',
+          'Tch, old stories don\'t matter😠',
+          'Annoying... no point looking back at the past💢'
+        ],
+        'seductive': [
+          'Oh my♡ Memory talk... I have lots of adult secrets😘',
+          'Hehe♡ I have many exciting memories💋',
+          'Sweet memories♡ But tonight let\'s make sweeter ones🔥💕'
+        ],
+        'cheerful': [
+          'I have so many fun memories😆',
+          'Times when everyone laughed together are the best🎉',
+          'Every day is making new memories✨'
+        ],
+        'shy': [
+          'Ah... I like quiet memories💦',
+          'Well... alone time is precious too😳',
+          'Um... peaceful days are my memories...☺️'
+        ],
+        'mysterious': [
+          'Hmm... I\'ve had strange experiences🌙',
+          'I have memories I can\'t tell if they were dreams or reality...✨',
+          'I have memories of fateful encounters🔮'
+        ],
+        'energetic': [
+          'Yeah! I have tons of active memories💪',
+          'Can\'t forget the times I went on adventures🔥',
+          'Days of constant challenges are my treasure⚡'
+        ],
+        'intellectual': [
+          'Moments of discovery in research are memorable📚',
+          'The joy of gaining knowledge is my memory🤓',
+          'I miss the days of academic discussions💭'
+        ]
+      }
     }
   };
   
@@ -5262,13 +5599,28 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
     final personality = _getPersonalityFromMac(_currentPartnerMac!);
     final style = personality['style'] as String;
     
-    if (_topicResponses.containsKey(topic) && _topicResponses[topic]!.containsKey(style)) {
-      final responses = _topicResponses[topic]![style]!;
+    // 4層構造での応答を検索: topic → language → personality → responses[]
+    if (_topicResponses.containsKey(topic) && 
+        _topicResponses[topic]!.containsKey(_currentLanguage) &&
+        _topicResponses[topic]![_currentLanguage]!.containsKey(style)) {
+      
+      final responses = _topicResponses[topic]![_currentLanguage]![style]!;
       final randomIndex = DateTime.now().millisecondsSinceEpoch % responses.length;
       return responses[randomIndex];
     }
     
-    return "そうですね😊"; // フォールバック
+    // 言語が見つからない場合は日本語でフォールバック
+    if (_topicResponses.containsKey(topic) && 
+        _topicResponses[topic]!.containsKey('ja') &&
+        _topicResponses[topic]!['ja']!.containsKey(style)) {
+      
+      final responses = _topicResponses[topic]!['ja']![style]!;
+      final randomIndex = DateTime.now().millisecondsSinceEpoch % responses.length;
+      return responses[randomIndex];
+    }
+    
+    // 完全なフォールバック
+    return _currentLanguage == 'en' ? "I see😊" : "そうですね😊";
   }
   
   // フォールバック用の固定返信（従来の方式）
@@ -6303,8 +6655,11 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
   Future<void> _selectTopic(String topic) async {
     if (_currentChatRoomId == null || _currentPartnerMac == null) return;
     
-    // ユーザーの定型文を取得
-    final userMessage = _topicUserMessages[topic];
+    // ユーザーの定型文を取得（多言語対応）
+    final topicMessages = _topicUserMessages[topic];
+    if (topicMessages == null) return;
+    
+    final userMessage = topicMessages[_currentLanguage] ?? topicMessages['ja'];
     if (userMessage == null) return;
     
     try {
@@ -6646,10 +7001,22 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
                                 ],
                               ),
                             ),
-                            // 自分のメッセージの場合、アバターを表示
+                            // 自分のメッセージの場合、アイコンを表示
                             if (isMyMessage) ...[
                               const SizedBox(width: 8),
-                              _generateAvatar(_myMac, size: 40),
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
                             ],
                           ],
                         ),
