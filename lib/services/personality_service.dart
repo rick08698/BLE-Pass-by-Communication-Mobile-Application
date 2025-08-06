@@ -10,9 +10,16 @@ class PersonalityService {
 
   // 利用可能な性格タイプ（拡張可能）
   static const List<Map<String, dynamic>> availablePersonalities = [
+    {'style': 'gentle', 'name': '優しい'},
+    {'style': 'cool', 'name': 'クール'},
+    {'style': 'cute', 'name': '可愛い'},
     {'style': 'aggressive', 'name': '攻撃的'},
     {'style': 'seductive', 'name': '色気'},
-    {'style': 'religious', 'name': '宗教'},
+    {'style': 'cheerful', 'name': '明るい'},
+    {'style': 'shy', 'name': '恥ずかしがり屋'},
+    {'style': 'mysterious', 'name': 'ミステリアス'},
+    {'style': 'energetic', 'name': '元気'},
+    {'style': 'intellectual', 'name': '知的'},
   ];
 
   // アバター画像のリスト
@@ -93,6 +100,27 @@ class PersonalityService {
   // 性格に基づいた返信パターンを取得
   List<String> getReplyPatterns(String personalityStyle) {
     const replyPatterns = {
+      'gentle': [
+        'ありがとうございます😊',
+        'とても嬉しいです💕',
+        'あなたも素敵ですね✨',
+        'そんな風に言ってもらえて幸せです🌸',
+        'お気遣いありがとうございます😌',
+      ],
+      'cool': [
+        'そうですね😎',
+        'まあ、悪くないね👍',
+        'ふーん、なるほど🤔',
+        '別に普通だけど💭',
+        'そんなところかな😏',
+      ],
+      'cute': [
+        'わーい！ありがとう🥰',
+        'えへへ〜照れちゃう💕',
+        'そんなこと言われたら嬉しいな〜😊',
+        'きゃー！恥ずかしい〜☺️',
+        'ほんと？やったー！🎉',
+      ],
       'aggressive': [
         'チッ、まあ悪くねえじゃねえか💢',
         'ああ？ありがとよ😠',
@@ -107,15 +135,43 @@ class PersonalityService {
         'もっと褒めてもいいのよ？💕',
         'そういうの、嫌いじゃないわ〜😏',
       ],
-      'religious': [
-        '神のお恵みがありますように🙏',
-        'あなたにも神の祝福を✝️',
-        '主に感謝いたします🕊️',
-        'これも神の導きですね🙏',
-        '祈りが通じたようですね✨',
+      'cheerful': [
+        'ありがとう〜！超嬉しい！😆',
+        'やったー！最高だね〜🎉',
+        'えー！本当に？ありがとう！✨',
+        'うわー！テンション上がる〜！🚀',
+        'すっごく嬉しいよ〜！💫',
+      ],
+      'shy': [
+        'あ、ありがとう...💦',
+        'そんな...恥ずかしいです😳',
+        'え、えっと...嬉しいです...☺️',
+        'あの...ありがとうございます...🙈',
+        'そんなこと言われると...ドキドキしちゃいます💓',
+      ],
+      'mysterious': [
+        'フフ...そうですか...🌙',
+        '興味深いですね...✨',
+        'それは...秘密です...😏',
+        'あなたには話しましょうか...🔮',
+        '不思議な縁ですね...🌟',
+      ],
+      'energetic': [
+        'おー！ありがとう！💪',
+        'やるじゃん！最高だぜ！🔥',
+        'よっしゃ！ナイス！⚡',
+        'うおー！テンション最高！🚀',
+        'ガハハ！いいねえ！😄',
+      ],
+      'intellectual': [
+        '興味深い観点ですね📚',
+        'なるほど、的確な分析です🤓',
+        '論理的な考察ですね💭',
+        'データに基づく判断ですか🔬',
+        '合理的なアプローチですね⚗️',
       ],
     };
 
-    return replyPatterns[personalityStyle] ?? replyPatterns['aggressive']!;
+    return replyPatterns[personalityStyle] ?? replyPatterns['gentle']!;
   }
 }

@@ -12,6 +12,27 @@ class PersonalitySelectionPage extends StatefulWidget {
 class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
   String? _selectedPersonality;
   final PersonalityService _personalityService = PersonalityService();
+  String _currentLanguage = 'ja'; // デフォルト言語
+
+  // 多言語対応テキスト
+  final Map<String, Map<String, String>> _texts = {
+    'ja': {
+      'title': '好みのタイプを選択',
+      'subtitle': 'マッチした相手の性格タイプを選んでください',
+      'start_button': 'アプリを開始',
+      'select_first': '性格を選択してください',
+    },
+    'en': {
+      'title': 'Select Your Preferred Type',
+      'subtitle': 'Choose the personality type for your matched partners',
+      'start_button': 'Start App',
+      'select_first': 'Please select a personality',
+    },
+  };
+
+  String _getText(String key) {
+    return _texts[_currentLanguage]?[key] ?? _texts['ja']?[key] ?? key;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,10 +56,32 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
               children: [
                 const SizedBox(height: 40),
                 
+                // 言語切り替えボタン
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _currentLanguage = _currentLanguage == 'ja' ? 'en' : 'ja';
+                        });
+                      },
+                      child: Text(
+                        _currentLanguage == 'ja' ? 'English' : '日本語',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
                 // タイトル
-                const Text(
-                  '好みのタイプを選択',
-                  style: TextStyle(
+                Text(
+                  _getText('title'),
+                  style: const TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -54,9 +97,9 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
                 
                 const SizedBox(height: 16),
                 
-                const Text(
-                  'マッチした相手の性格タイプを選んでください',
-                  style: TextStyle(
+                Text(
+                  _getText('subtitle'),
+                  style: const TextStyle(
                     fontSize: 16,
                     color: Colors.white,
                     shadows: [
@@ -190,7 +233,7 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
                         shadowColor: Colors.black.withOpacity(0.3),
                       ),
                       child: Text(
-                        _selectedPersonality != null ? 'アプリを開始' : '性格を選択してください',
+                        _selectedPersonality != null ? _getText('start_button') : _getText('select_first'),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -209,12 +252,26 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
 
   Color _getPersonalityColor(String style) {
     switch (style) {
+      case 'gentle':
+        return Colors.green;
+      case 'cool':
+        return Colors.blue;
+      case 'cute':
+        return Colors.pink.shade300;
       case 'aggressive':
         return Colors.red;
       case 'seductive':
         return Colors.pink;
-      case 'religious':
-        return Colors.purple;
+      case 'cheerful':
+        return Colors.orange;
+      case 'shy':
+        return Colors.purple.shade300;
+      case 'mysterious':
+        return Colors.indigo;
+      case 'energetic':
+        return Colors.amber;
+      case 'intellectual':
+        return Colors.teal;
       default:
         return Colors.grey;
     }
@@ -222,28 +279,62 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
 
   IconData _getPersonalityIcon(String style) {
     switch (style) {
+      case 'gentle':
+        return Icons.favorite_border;
+      case 'cool':
+        return Icons.ac_unit;
+      case 'cute':
+        return Icons.emoji_emotions;
       case 'aggressive':
         return Icons.flash_on;
       case 'seductive':
         return Icons.favorite;
-      case 'religious':
-        return Icons.auto_awesome;
+      case 'cheerful':
+        return Icons.wb_sunny;
+      case 'shy':
+        return Icons.sentiment_neutral;
+      case 'mysterious':
+        return Icons.visibility_off;
+      case 'energetic':
+        return Icons.bolt;
+      case 'intellectual':
+        return Icons.school;
       default:
         return Icons.person;
     }
   }
 
   String _getPersonalityDescription(String style) {
-    switch (style) {
-      case 'aggressive':
-        return 'ツンデレで情熱的な性格';
-      case 'seductive':
-        return '魅力的で色っぽい性格';
-      case 'religious':
-        return '神聖で平和的な性格';
-      default:
-        return '一般的な性格';
-    }
+    final descriptions = {
+      'ja': {
+        'gentle': '心優しく思いやりのある性格',
+        'cool': 'クールで冷静沈着な性格',
+        'cute': '可愛らしく愛らしい性格',
+        'aggressive': 'ツンデレで情熱的な性格',
+        'seductive': '魅力的で色っぽい性格',
+        'cheerful': '明るくポジティブな性格',
+        'shy': '恥ずかしがり屋で控えめな性格',
+        'mysterious': 'ミステリアスで謎めいた性格',
+        'energetic': '元気いっぱいでパワフルな性格',
+        'intellectual': '知的で論理的な性格',
+      },
+      'en': {
+        'gentle': 'Kind and caring personality',
+        'cool': 'Cool and composed personality',
+        'cute': 'Adorable and charming personality',
+        'aggressive': 'Tsundere and passionate personality',
+        'seductive': 'Attractive and alluring personality',
+        'cheerful': 'Bright and positive personality',
+        'shy': 'Shy and reserved personality',
+        'mysterious': 'Mysterious and enigmatic personality',
+        'energetic': 'Energetic and powerful personality',
+        'intellectual': 'Intelligent and logical personality',
+      },
+    };
+    
+    return descriptions[_currentLanguage]?[style] ?? 
+           descriptions['ja']?[style] ?? 
+           'General personality';
   }
 
   void _startApp() {
@@ -251,10 +342,10 @@ class _PersonalitySelectionPageState extends State<PersonalitySelectionPage> {
       // ユーザーの好みの性格を保存
       _personalityService.setUserPreferredPersonality(_selectedPersonality!);
       
-      // メインアプリに遷移
+      // メインアプリに遷移（選択した言語を引き渡し）
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => const BleTestPage(language: 'ja'),
+          builder: (context) => BleTestPage(language: _currentLanguage),
         ),
       );
     }
