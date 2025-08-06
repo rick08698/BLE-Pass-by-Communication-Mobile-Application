@@ -23,10 +23,10 @@ void main() async {
   
   // Supabaseの初期化（後でAPIキーを設定）
   // ★ あなたのSupabaseプロジェクトのURLとANON KEYに書き換えてください
-  await Supabase.initialize(
-    url: 'https://pefwaiptgdqwefwljaks.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZndhaXB0Z2Rxd2Vmd2xqYWtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxMTczNDEsImV4cCI6MjA2ODY5MzM0MX0.zTb6JKPL_bVN0ZTjPE1069g4cM9bo9DdpaGjYPNP9Js',
-  );
+await Supabase.initialize(
+  url: 'YOUR_SUPABASE_URL_HERE',
+  anonKey: 'YOUR_SUPABASE_ANON_KEY_HERE',
+);
   
   runApp(const MyApp());
 }
@@ -593,7 +593,7 @@ class _BleTestPageState extends State<BleTestPage> with SingleTickerProviderStat
   final Map<String, int> _ownedItems = {}; // 所有アイテム
   
   // AI チャット機能用の変数
-  static const String _geminiApiKey = 'AIzaSyBGRR1Esl5CA0-HWM1TJzfvpBi17QH5zcI'; // ★ここにGoogle Gemini APIキーを設定
+  static const String _geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE'; // ★ここにGoogle Gemini APIキーを設定
   static const String _geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
   final Map<String, List<Map<String, String>>> _conversationHistory = {}; // チャットルームごとの会話履歴
   
