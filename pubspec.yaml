@@ -38,6 +38,7 @@ dependencies:
   geolocator: ^12.0.0  # 位置情報取得用
   audioplayers: ^6.0.0  # 音声再生用
   video_player: ^2.8.2  # 動画再生用 
+  flutter_dotenv: ^5.1.0  # .env から環境変数を読み込む
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -72,6 +73,7 @@ flutter:
     - assets/success.png
     - assets/music/
     - assets/videos/
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
