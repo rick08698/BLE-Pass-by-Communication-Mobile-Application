@@ -25,6 +25,48 @@ class AppConfig {
   static String supabaseUrl = '';
   static String supabaseAnonKey = '';
   static String geminiApiKey = '';
+  // Use a lightweight default model to reduce errors
+  static String geminiModel = 'gemini-2.0-flash-lite-001';
+}
+
+// Helper: find the first index of any of the given needle substrings
+int _firstIndexOfAny(String s, List<String> needles) {
+  int best = -1;
+  for (final n in needles) {
+    final i = s.indexOf(n);
+    if (i != -1) {
+      best = best == -1 ? i : (i < best ? i : best);
+    }
+  }
+  return best;
+}
+
+// Helper: strip inline comments (// or #) that are OUTSIDE quotes
+String _stripInlineComment(String s) {
+  bool inSingle = false;
+  bool inDouble = false;
+  for (int i = 0; i < s.length; i++) {
+    final ch = s[i];
+    if (ch == "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch == '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (!inSingle && !inDouble) {
+      // '#'
+      if (ch == '#') {
+        return s.substring(0, i).trim();
+      }
+      // '//'
+      if (ch == '/' && i + 1 < s.length && s[i + 1] == '/') {
+        return s.substring(0, i).trim();
+      }
+    }
+  }
+  return s.trim();
 }
 
 void main() async {
@@ -70,7 +112,12 @@ void main() async {
         if (idx <= 0) continue;
         final key = l.substring(0, idx).trim();
         var val = l.substring(idx + 1).trim();
-        if (val.endsWith(',')) val = val.substring(0, val.length - 1).trim();
+        // strip inline comments outside quotes
+        val = _stripInlineComment(val);
+        // drop trailing semicolons/commas
+        while (val.endsWith(';') || val.endsWith(',')) {
+          val = val.substring(0, val.length - 1).trim();
+        }
         if ((val.startsWith("\"") && val.endsWith("\"")) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.substring(1, val.length - 1).trim();
         }
@@ -96,6 +143,17 @@ void main() async {
         ? (dotenv.env['GEMINI_API_KEY'] ?? '')
         : (loose['GEMINI_API_KEY'] ?? loose['_geminiApiKey'] ?? '');
     if (gKey.isNotEmpty) AppConfig.geminiApiKey = gKey.trim();
+    // Gemini model 対応（任意設定）。存在すれば反映
+    var gModel = (dotenv.env['GEMINI_MODEL'] ?? '').trim().isNotEmpty
+        ? (dotenv.env['GEMINI_MODEL'] ?? '')
+        : (loose['GEMINI_MODEL'] ?? loose['_geminiModel'] ?? '');
+    if (gModel.isNotEmpty) {
+      gModel = gModel.trim();
+      if (gModel.startsWith('models/')) {
+        gModel = gModel.substring('models/'.length);
+      }
+      AppConfig.geminiModel = gModel;
+    }
   }
 
   // 共有設定に保存（他箇所の検証用）
@@ -691,7 +749,9 @@ class _BleTestPageState extends State<BleTestPage> with SingleTickerProviderStat
     }
     return v.isNotEmpty ? v : 'YOUR_GEMINI_API_KEY_HERE';
   }
-  static const String _geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+  // Build Gemini API endpoint from configured model (defaults to gemini-2.5-flash)
+  static String get _geminiApiUrl =>
+      'https://generativelanguage.googleapis.com/v1/models/${AppConfig.geminiModel}:generateContent';
   final Map<String, List<Map<String, String>>> _conversationHistory = {}; // チャットルームごとの会話履歴
   
   // 話題選択用のユーザー定型文（多言語対応）
@@ -5754,11 +5814,11 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
         'content': userMessage,
       });
       
-      // 会話履歴が長すぎる場合は古いものを削除（最新10件まで保持）
-      if (_conversationHistory[_currentChatRoomId!]!.length > 10) {
+      // 会話履歴が長すぎる場合は古いものを削除（最新4件まで保持）
+      if (_conversationHistory[_currentChatRoomId!]!.length > 4) {
         _conversationHistory[_currentChatRoomId!] = 
             _conversationHistory[_currentChatRoomId!]!.sublist(
-                _conversationHistory[_currentChatRoomId!]!.length - 10);
+                _conversationHistory[_currentChatRoomId!]!.length - 4);
       }
       
       // 言語に基づいてプロンプトを作成
@@ -5777,6 +5837,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       final requestBody = {
         'contents': [
           {
+            'role': 'user',
             'parts': [
               {
                 'text': systemPrompt + '\n\n' + languageInstruction + '\n\n' +
@@ -5790,10 +5851,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
           }
         ],
         'generationConfig': {
-          'temperature': 0.9,
-          'topK': 1,
-          'topP': 1,
-          'maxOutputTokens': 200,
+          'temperature': 0.6,
+          'maxOutputTokens': 256,
         },
         'safetySettings': [
           {
@@ -5836,8 +5895,53 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
               return aiReply.trim();
             }
           }
-          // candidatesはあるが中身がフィルタで空のケース
-          _logger.w("Gemini応答にテキストが含まれないためフォールバックします: ${response.body}");
+          // candidatesはあるが中身がフィルタで空のケース -> 簡易再試行
+          _logger.w("Gemini応答にテキストが含まれないためフォールバック/再試行します: ${response.body}");
+          final simpleBody = {
+            'contents': [
+              {
+                'role': 'user',
+                'parts': [
+                  {
+                    'text': (_currentLanguage == 'en'
+                            ? 'Reply concisely (one short sentence): '
+                            : '一文で簡潔に日本語で返答してください: ') + userMessage
+                  }
+                ]
+              }
+            ],
+            'generationConfig': {
+              'temperature': 0.6,
+              'maxOutputTokens': 128,
+            }
+          };
+          try {
+            final r2 = await http
+                .post(
+                  Uri.parse(_geminiApiUrl),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': _geminiApiKey,
+                  },
+                  body: json.encode(simpleBody),
+                )
+                .timeout(const Duration(seconds: 12));
+            if (r2.statusCode == 200) {
+              final d2 = json.decode(r2.body);
+              final c2 = d2['candidates'];
+              if (c2 is List && c2.isNotEmpty) {
+                final ct = c2[0]['content'];
+                if (ct != null && ct['parts'] is List && ct['parts'].isNotEmpty) {
+                  final txt = ct['parts'][0]['text']?.toString() ?? '';
+                  if (txt.trim().isNotEmpty) {
+                    _conversationHistory[_currentChatRoomId!]!.add({'role': 'assistant', 'content': txt});
+                    _logger.i("AI返信（再試行）成功: $txt");
+                    return txt.trim();
+                  }
+                }
+              }
+            }
+          } catch (_) {}
           return _generateFallbackReply(userMessage);
         }
         
