@@ -1945,10 +1945,14 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
 
   void _showMessage(String message) {
     if (!mounted) return;
+    final bottomOffset = MediaQuery.of(context).padding.bottom + 120.0; // 画面下から少し上に表示
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(16, 0, 16, bottomOffset),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
