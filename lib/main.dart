@@ -1496,8 +1496,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
         'en': 'Cigarettes',
       },
       'description': {
-        'ja': 'avatar1専用アイテム。どんな性格でも受け取ってくれます。それぞれの性格に応じた反応が楽しめます。（avatar1のみ+15、他-3）',
-        'en': 'Exclusive item for avatar1. Anyone will accept it regardless of personality. Enjoy different reactions based on their personality. (Avatar1 only +15, Others -3)',
+        'ja': '特定の相手にのみ効果を発揮するアイテム。性格に応じた反応が楽しめます。（対象には+15、それ以外は-3）',
+        'en': 'An item that is effective only for a specific person. Enjoy reactions based on their personality. (+15 for the target, -3 for others)',
       },
       'price': 100,
       'icon': 'local_fire_department',
@@ -2033,15 +2033,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: _itemDefinitions.entries.where((entry) {
-                  final itemId = entry.key;
-                  // タバコアイテムはアニメ風グループ選択時のみ表示
-                  if (itemId == 'cigarette') {
-                    final selectedGroup = PersonalityService().getSelectedAvatarGroup();
-                    return selectedGroup == 'anime';
-                  }
-                  return true;
-                }).map((entry) {
+                children: _itemDefinitions.entries.map((entry) {
                   final itemId = entry.key;
                   final item = entry.value;
                   return _buildItemCard(
