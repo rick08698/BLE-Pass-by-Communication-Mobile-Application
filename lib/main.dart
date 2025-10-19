@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/audio_service.dart';
 import 'services/video_service.dart';
 import 'services/personality_service.dart';
@@ -18,15 +20,158 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as Math;
 
+// アプリ全体で参照する接続設定
+class AppConfig {
+  static String supabaseUrl = '';
+  static String supabaseAnonKey = '';
+  static String geminiApiKey = '';
+  // Use a lightweight default model to reduce errors
+  static String geminiModel = 'gemini-2.0-flash-lite-001';
+}
+
+// Helper: find the first index of any of the given needle substrings
+int _firstIndexOfAny(String s, List<String> needles) {
+  int best = -1;
+  for (final n in needles) {
+    final i = s.indexOf(n);
+    if (i != -1) {
+      best = best == -1 ? i : (i < best ? i : best);
+    }
+  }
+  return best;
+}
+
+// Helper: strip inline comments (// or #) that are OUTSIDE quotes
+String _stripInlineComment(String s) {
+  bool inSingle = false;
+  bool inDouble = false;
+  for (int i = 0; i < s.length; i++) {
+    final ch = s[i];
+    if (ch == "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch == '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (!inSingle && !inDouble) {
+      // '#'
+      if (ch == '#') {
+        return s.substring(0, i).trim();
+      }
+      // '//'
+      if (ch == '/' && i + 1 < s.length && s[i + 1] == '/') {
+        return s.substring(0, i).trim();
+      }
+    }
+  }
+  return s.trim();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Supabaseの初期化（後でAPIキーを設定）
-  // ★ あなたのSupabaseプロジェクトのURLとANON KEYに書き換えてください
-await Supabase.initialize(
-  url: 'YOUR_SUPABASE_URL_HERE',
-  anonKey: 'YOUR_SUPABASE_ANON_KEY_HERE',
-);
+  // .env を読み込み（プロジェクトルートの .env を pubspec.yaml で assets 登録済み）
+  await dotenv.load(fileName: ".env");
+
+  String _env(String key) {
+    var v = (dotenv.env[key] ?? '').trim();
+    if (v.length >= 2) {
+      final q1 = v.codeUnitAt(0);
+      final qn = v.codeUnitAt(v.length - 1);
+      final isDoubleQuoted = q1 == 0x22 && qn == 0x22; // "
+      final isSingleQuoted = q1 == 0x27 && qn == 0x27; // '
+      if (isDoubleQuoted || isSingleQuoted) {
+        v = v.substring(1, v.length - 1).trim();
+      }
+    }
+    return v;
+  }
+
+  // ルーズな形式の .env を追加対応してパース（key=value / key: 'value' / key = 'value'）
+  Future<Map<String, String>> _parseLooseEnv() async {
+    try {
+      final raw = await rootBundle.loadString('.env');
+      final Map<String, String> out = {};
+      for (final line in raw.split('\n')) {
+        var l = line.trim();
+        if (l.isEmpty) continue;
+        if (l.startsWith('#') || l.startsWith('//')) continue;
+        // key: 'value' or key = 'value' or key=value
+        final sepIdx = l.indexOf(':');
+        final eqIdx = l.indexOf('=');
+        int idx;
+        if (sepIdx == -1 && eqIdx == -1) continue;
+        if (sepIdx == -1) {
+          idx = eqIdx;
+        } else if (eqIdx == -1) {
+          idx = sepIdx;
+        } else {
+          idx = sepIdx < eqIdx ? sepIdx : eqIdx;
+        }
+        if (idx <= 0) continue;
+        final key = l.substring(0, idx).trim();
+        var val = l.substring(idx + 1).trim();
+        // strip inline comments outside quotes
+        val = _stripInlineComment(val);
+        // drop trailing semicolons/commas
+        while (val.endsWith(';') || val.endsWith(',')) {
+          val = val.substring(0, val.length - 1).trim();
+        }
+        if ((val.startsWith("\"") && val.endsWith("\"")) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1).trim();
+        }
+        if (key.isNotEmpty && val.isNotEmpty) out[key] = val;
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // Supabaseの初期化（.env の値を使用）
+  var supabaseUrl = _env('SUPABASE_URL');
+  var supabaseAnonKey = _env('SUPABASE_ANON_KEY');
+
+  // .env が yaml/js 風の書式の場合: url: '...'/anonKey: '...' をパース
+  if (!(supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://')) || supabaseAnonKey.isEmpty) {
+    final loose = await _parseLooseEnv();
+    supabaseUrl = supabaseUrl.isNotEmpty ? supabaseUrl : (loose['SUPABASE_URL'] ?? loose['url'] ?? '');
+    supabaseAnonKey = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : (loose['SUPABASE_ANON_KEY'] ?? loose['anonKey'] ?? '');
+    // Gemini key 対応（両形式）
+    final gKey = (dotenv.env['GEMINI_API_KEY'] ?? '').trim().isNotEmpty
+        ? (dotenv.env['GEMINI_API_KEY'] ?? '')
+        : (loose['GEMINI_API_KEY'] ?? loose['_geminiApiKey'] ?? '');
+    if (gKey.isNotEmpty) AppConfig.geminiApiKey = gKey.trim();
+    // Gemini model 対応（任意設定）。存在すれば反映
+    var gModel = (dotenv.env['GEMINI_MODEL'] ?? '').trim().isNotEmpty
+        ? (dotenv.env['GEMINI_MODEL'] ?? '')
+        : (loose['GEMINI_MODEL'] ?? loose['_geminiModel'] ?? '');
+    if (gModel.isNotEmpty) {
+      gModel = gModel.trim();
+      if (gModel.startsWith('models/')) {
+        gModel = gModel.substring('models/'.length);
+      }
+      AppConfig.geminiModel = gModel;
+    }
+  }
+
+  // 共有設定に保存（他箇所の検証用）
+  AppConfig.supabaseUrl = supabaseUrl;
+  AppConfig.supabaseAnonKey = supabaseAnonKey;
+  if (supabaseUrl.isEmpty || !supabaseUrl.startsWith('http')) {
+    // 起動時に設定不備をログに出す（UIではチャット開始時にSnackBarで通知されます）
+    // ignore: avoid_print
+    print('[Config] SUPABASE_URL が未設定または不正です: "$supabaseUrl"');
+  }
+  if (supabaseAnonKey.isEmpty) {
+    // ignore: avoid_print
+    print('[Config] SUPABASE_ANON_KEY が未設定です');
+  }
+  await Supabase.initialize(
+    url: supabaseUrl.isNotEmpty ? supabaseUrl : 'YOUR_SUPABASE_URL_HERE',
+    anonKey: supabaseAnonKey.isNotEmpty ? supabaseAnonKey : 'YOUR_SUPABASE_ANON_KEY_HERE',
+  );
   
   runApp(const MyApp());
 }
@@ -53,6 +198,22 @@ class TitlePage extends StatefulWidget {
 
 class _TitlePageState extends State<TitlePage> {
   String _selectedLanguage = 'ja'; // デフォルトは日本語
+  // タイトル画面用のBGM
+  final AudioService _audioService = AudioService();
+
+  @override
+  void initState() {
+    super.initState();
+    // タイトルBGMを開始
+    _audioService.playBGM('music/title_bgm.mp3');
+  }
+
+  @override
+  void dispose() {
+    // タイトル画面を離れる際にBGMを停止（次の画面で別BGMを開始）
+    _audioService.stopBGM();
+    super.dispose();
+  }
 
   // 多言語対応用のテキスト定義（タイトル画面用）
   Map<String, Map<String, String>> get _titleTexts => {
@@ -593,8 +754,20 @@ class _BleTestPageState extends State<BleTestPage> with SingleTickerProviderStat
   final Map<String, int> _ownedItems = {}; // 所有アイテム
   
   // AI チャット機能用の変数
-  static const String _geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE'; // ★ここにGoogle Gemini APIキーを設定
-  static const String _geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+  // .env の GEMINI_API_KEY または AppConfig.geminiApiKey を使用
+  static String get _geminiApiKey {
+    if (AppConfig.geminiApiKey.isNotEmpty) return AppConfig.geminiApiKey;
+    var v = (dotenv.env['GEMINI_API_KEY'] ?? '').trim();
+    if (v.length >= 2) {
+      if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.substring(1, v.length - 1).trim();
+      }
+    }
+    return v.isNotEmpty ? v : 'YOUR_GEMINI_API_KEY_HERE';
+  }
+  // Build Gemini API endpoint from configured model (defaults to gemini-2.5-flash)
+  static String get _geminiApiUrl =>
+      'https://generativelanguage.googleapis.com/v1/models/${AppConfig.geminiModel}:generateContent';
   final Map<String, List<Map<String, String>>> _conversationHistory = {}; // チャットルームごとの会話履歴
   
   // 話題選択用のユーザー定型文（多言語対応）
@@ -1339,8 +1512,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
         'en': 'Cigarettes',
       },
       'description': {
-        'ja': 'avatar1専用アイテム。どんな性格でも受け取ってくれます。それぞれの性格に応じた反応が楽しめます。（avatar1のみ+15、他-3）',
-        'en': 'Exclusive item for avatar1. Anyone will accept it regardless of personality. Enjoy different reactions based on their personality. (Avatar1 only +15, Others -3)',
+        'ja': '特定の相手にのみ効果を発揮するアイテム。性格に応じた反応が楽しめます。（対象には+15、それ以外は-3）',
+        'en': 'An item that is effective only for a specific person. Enjoy reactions based on their personality. (+15 for the target, -3 for others)',
       },
       'price': 100,
       'icon': 'local_fire_department',
@@ -1772,10 +1945,14 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
 
   void _showMessage(String message) {
     if (!mounted) return;
+    final bottomOffset = MediaQuery.of(context).padding.bottom + 120.0; // 画面下から少し上に表示
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(16, 0, 16, bottomOffset),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1876,15 +2053,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: _itemDefinitions.entries.where((entry) {
-                  final itemId = entry.key;
-                  // タバコアイテムはアニメ風グループ選択時のみ表示
-                  if (itemId == 'cigarette') {
-                    final selectedGroup = PersonalityService().getSelectedAvatarGroup();
-                    return selectedGroup == 'anime';
-                  }
-                  return true;
-                }).map((entry) {
+                children: _itemDefinitions.entries.map((entry) {
                   final itemId = entry.key;
                   final item = entry.value;
                   return _buildItemCard(
@@ -2542,7 +2711,19 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
   // 音声ファイルを再生
   Future<void> _playSuccessSound() async {
     try {
-      await _audioPlayer.play(AssetSource('audio/BATTLE_BONUS_3000獲得音.mp3'));
+      final candidates = [
+        'audio/BATTLE_BONUS_3000獲得音.mp3',
+        'assets/audio/BATTLE_BONUS_3000獲得音.mp3',
+      ];
+      bool done = false;
+      for (final p in candidates) {
+        try {
+          await _audioPlayer.play(AssetSource(p));
+          done = true;
+          break;
+        } catch (_) {}
+      }
+      if (!done) throw Exception('success sound not found');
       _logger.i("成功音を再生しました");
     } catch (e) {
       _logger.e("音声再生エラー", error: e);
@@ -2558,14 +2739,24 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       String audioFile;
       
       if (intimacy >= 30) {
-        audioFile = 'audio/変動開始時エンブレム完成音（激アツ）.mp3';
+        audioFile = 'audio/変動開始時エンブレム完成音（激アツ）.mp3';
         _logger.i("激アツ音声を再生: 親密度=$intimacy");
       } else {
-        audioFile = 'audio/変動開始時エンブレム完成音（チャンス）.mp3';
+        audioFile = 'audio/変動開始時エンブレム完成音（チャンス）.mp3';
         _logger.i("チャンス音声を再生: 親密度=$intimacy");
       }
       
-      await _audioPlayer.play(AssetSource(audioFile));
+      // 候補を試す
+      final candidates = [audioFile, 'assets/$audioFile'];
+      bool done = false;
+      for (final p in candidates) {
+        try {
+          await _audioPlayer.play(AssetSource(p));
+          done = true;
+          break;
+        } catch (_) {}
+      }
+      if (!done) throw Exception('confession start sound not found: $audioFile');
     } catch (e) {
       _logger.e("告白音声再生エラー", error: e);
       // 音声ファイルがない場合は無視
@@ -5152,6 +5343,18 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
   
   // 指定されたデバイスとチャットを開始する
   Future<void> _startChatWithDevice(String partnerMac, String partnerName) async {
+    // Supabase設定チェック
+    if (!_isSupabaseConfigured()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("${_getText('chat_start_failed')}: Supabase is not configured (.env)"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     try {
       // チャットルームを作成または取得（固定のmyMacを使用）
       final response = await _supabase.rpc('create_or_get_chat_room', params: {
@@ -5203,6 +5406,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
   // メッセージを読み込む
   Future<void> _loadMessages() async {
     if (_currentChatRoomId == null) return;
+    if (!_isSupabaseConfigured()) return;
     
     try {
       final response = await _supabase
@@ -5235,6 +5439,17 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
     if (message.isEmpty || _currentChatRoomId == null) return;
+    if (!_isSupabaseConfigured()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("${_getText('message_send_failed')}: Supabase is not configured (.env)"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
     
     try {
       await _supabase.rpc('send_message', params: {
@@ -5321,6 +5536,27 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       }
     });
   }
+
+  bool _isSupabaseConfigured() {
+    String norm(String raw) {
+      var v = (raw).trim();
+      if (v.length >= 2) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith('\'') && v.endsWith('\''))) {
+          v = v.substring(1, v.length - 1).trim();
+        }
+      }
+      return v;
+    }
+    // 優先: main() で確定したAppConfig値
+    var url = norm(AppConfig.supabaseUrl);
+    var key = norm(AppConfig.supabaseAnonKey);
+    if (url.isEmpty || key.isEmpty) {
+      // フォールバック: dotenv
+      url = norm(dotenv.env['SUPABASE_URL'] ?? '');
+      key = norm(dotenv.env['SUPABASE_ANON_KEY'] ?? '');
+    }
+    return (url.startsWith('http://') || url.startsWith('https://')) && key.isNotEmpty;
+  }
   
   // MACアドレスから性格タイプを取得
   Map<String, dynamic> _getPersonalityFromMac(String macAddress) {
@@ -5329,6 +5565,82 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
 
   // 性格別の返信パターン
   static const Map<String, Map<String, List<String>>> _replyPatterns = {
+    'gentle': {
+      'greeting': [
+        'こんにちは😊',
+        'お会いできて嬉しいです✨',
+        'はじめまして🌸',
+      ],
+      'question': [
+        'いい質問ですね😌',
+        'どう思いますか？😊',
+        '一緒に考えてみましょう🌿',
+      ],
+      'positive': [
+        '素敵ですね✨',
+        '嬉しいです💕',
+        'ありがとうございます😊',
+      ],
+      'tired': [
+        'お疲れさまです☕',
+        '無理しないでくださいね🍀',
+        '少し休みましょう😌',
+      ],
+      'default': [
+        'そうなんですね😊',
+        'なるほど✨',
+        'わかります🌸',
+      ],
+    },
+    'cool': {
+      'greeting': ['やあ😎', 'どうも👍', 'こんにちは'],
+      'question': ['なるほど🤔', '面白いね', '確認してみるよ'],
+      'positive': ['いいね👍', '悪くない', '良い感じだ'],
+      'tired': ['休もうか', '無理は禁物だよ', '落ち着いていこう'],
+      'default': ['ふむ', '了解', 'OK'],
+    },
+    'cute': {
+      'greeting': ['やっほ〜🥰', 'こんにちは〜💕', 'はじめまして〜🌸'],
+      'question': ['どうしよ〜？😊', '一緒に考えよ〜✨', 'わくわくしちゃう！'],
+      'positive': ['わ〜い！嬉しい〜💖', 'すてきっ✨', 'ありがと〜🥰'],
+      'tired': ['がんばったね〜😌', 'ゆっくり休んでね☕', 'えらいよ〜💮'],
+      'default': ['うんうん😊', 'えへへ💕', 'なるほど〜🌟'],
+    },
+    'cheerful': {
+      'greeting': ['やっほー！😆', 'こんにちは！🎉', '元気？✨'],
+      'question': ['いいね！やってみよう！', '考えるだけでワクワク！', '最高だね！'],
+      'positive': ['サイコー！🎉', '最高にハッピー！', 'うれしい〜！✨'],
+      'tired': ['ファイト！💪', '一緒にがんばろ！', 'ちょっと休憩ね！'],
+      'default': ['いい感じ！', '了解！', 'OK！'],
+    },
+    'shy': {
+      'greeting': ['あ…こんにちは😳', 'よ、よろしくです…💦', 'はじめまして…☺️'],
+      'question': ['えっと…どうかな…', '少し考えさせて…', 'うん…たぶん…'],
+      'positive': ['う、嬉しい…😊', 'ありがとう…！', 'よかった…✨'],
+      'tired': ['だ、大丈夫…？', '無理しないでね…', '休もう…？'],
+      'default': ['うん…', 'そうだね…', 'なるほど…'],
+    },
+    'mysterious': {
+      'greeting': ['ごきげんよう🌙', '運命を感じますね🔮', '面白い出会いです✨'],
+      'question': ['それは…秘密かも', '月が教えてくれるかも🌙', '直感的には…'],
+      'positive': ['良い兆しです✨', '星々も微笑んでいます🌟', '不思議と嬉しいですね'],
+      'tired': ['夜風に当たりましょう', '静寂が癒してくれます', '時間が解決しますよ'],
+      'default': ['ふふ…', '面白いですね', 'なるほど…'],
+    },
+    'energetic': {
+      'greeting': ['うおー！元気！？💪', 'やっていこう！🔥', 'よっしゃ！✨'],
+      'question': ['いいね！挑戦しよう！', 'やるしかない！', '楽しもう！'],
+      'positive': ['最高！⚡', 'テンション上がる！', 'ナイス！'],
+      'tired': ['休憩してパワーチャージ！', '無理は禁物！', '水分補給！'],
+      'default': ['OK！', '任せて！', 'いける！'],
+    },
+    'intellectual': {
+      'greeting': ['こんにちは。議論しますか？📚', 'ご機嫌よう🤓', '興味深い出会いですね'],
+      'question': ['仮説を立てましょう', 'データが必要ですね', '合理的に考えましょう'],
+      'positive': ['有意義ですね', '統計的にも良好です', '知的に面白いです'],
+      'tired': ['休息は生産性を上げます', '少しインターバルを', '睡眠は最良の投資です'],
+      'default': ['合理的です', 'なるほど', '検討しましょう'],
+    },
     'aggressive': {
       'greeting': [
         "チッ、何だよ💢 挨拶とかダルいんだよ",
@@ -5514,11 +5826,11 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
         'content': userMessage,
       });
       
-      // 会話履歴が長すぎる場合は古いものを削除（最新10件まで保持）
-      if (_conversationHistory[_currentChatRoomId!]!.length > 10) {
+      // 会話履歴が長すぎる場合は古いものを削除（最新4件まで保持）
+      if (_conversationHistory[_currentChatRoomId!]!.length > 4) {
         _conversationHistory[_currentChatRoomId!] = 
             _conversationHistory[_currentChatRoomId!]!.sublist(
-                _conversationHistory[_currentChatRoomId!]!.length - 10);
+                _conversationHistory[_currentChatRoomId!]!.length - 4);
       }
       
       // 言語に基づいてプロンプトを作成
@@ -5537,6 +5849,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       final requestBody = {
         'contents': [
           {
+            'role': 'user',
             'parts': [
               {
                 'text': systemPrompt + '\n\n' + languageInstruction + '\n\n' +
@@ -5550,10 +5863,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
           }
         ],
         'generationConfig': {
-          'temperature': 0.9,
-          'topK': 1,
-          'topP': 1,
-          'maxOutputTokens': 200,
+          'temperature': 0.6,
+          'maxOutputTokens': 256,
         },
         'safetySettings': [
           {
@@ -5568,26 +5879,86 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       };
       
       // API呼び出し
-      final response = await http.post(
-        Uri.parse('$_geminiApiUrl?key=$_geminiApiKey'),
+      final response = await http
+          .post(
+        Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': _geminiApiKey,
         },
         body: json.encode(requestBody),
-      );
+      )
+          .timeout(const Duration(seconds: 15));
       
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        final aiReply = responseData['candidates'][0]['content']['parts'][0]['text'] as String;
+        final candidates = responseData['candidates'];
+        if (candidates is List && candidates.isNotEmpty) {
+          final content = candidates[0]['content'];
+          if (content != null && content['parts'] is List && content['parts'].isNotEmpty) {
+            final aiReply = content['parts'][0]['text']?.toString() ?? '';
+            if (aiReply.trim().isNotEmpty) {
+              // 会話履歴にAIの返信を追加
+              _conversationHistory[_currentChatRoomId!]!.add({
+                'role': 'assistant',
+                'content': aiReply,
+              });
+              _logger.i("AI返信生成成功: $aiReply");
+              return aiReply.trim();
+            }
+          }
+          // candidatesはあるが中身がフィルタで空のケース -> 簡易再試行
+          _logger.w("Gemini応答にテキストが含まれないためフォールバック/再試行します: ${response.body}");
+          final simpleBody = {
+            'contents': [
+              {
+                'role': 'user',
+                'parts': [
+                  {
+                    'text': (_currentLanguage == 'en'
+                            ? 'Reply concisely (one short sentence): '
+                            : '一文で簡潔に日本語で返答してください: ') + userMessage
+                  }
+                ]
+              }
+            ],
+            'generationConfig': {
+              'temperature': 0.6,
+              'maxOutputTokens': 128,
+            }
+          };
+          try {
+            final r2 = await http
+                .post(
+                  Uri.parse(_geminiApiUrl),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': _geminiApiKey,
+                  },
+                  body: json.encode(simpleBody),
+                )
+                .timeout(const Duration(seconds: 12));
+            if (r2.statusCode == 200) {
+              final d2 = json.decode(r2.body);
+              final c2 = d2['candidates'];
+              if (c2 is List && c2.isNotEmpty) {
+                final ct = c2[0]['content'];
+                if (ct != null && ct['parts'] is List && ct['parts'].isNotEmpty) {
+                  final txt = ct['parts'][0]['text']?.toString() ?? '';
+                  if (txt.trim().isNotEmpty) {
+                    _conversationHistory[_currentChatRoomId!]!.add({'role': 'assistant', 'content': txt});
+                    _logger.i("AI返信（再試行）成功: $txt");
+                    return txt.trim();
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+          return _generateFallbackReply(userMessage);
+        }
         
-        // 会話履歴にAIの返信を追加
-        _conversationHistory[_currentChatRoomId!]!.add({
-          'role': 'assistant',
-          'content': aiReply,
-        });
-        
-        _logger.i("AI返信生成成功: $aiReply");
-        return aiReply.trim();
+        _logger.w("Gemini応答にcandidatesが含まれないためフォールバックします: ${response.body}");
+        return _generateFallbackReply(userMessage);
         
       } else {
         _logger.e("Gemini API エラー: ${response.statusCode} - ${response.body}");
@@ -5637,7 +6008,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
     
     final personality = _getPersonalityFromMac(_currentPartnerMac!);
     final style = personality['style'] as String;
-    final patterns = _replyPatterns[style]!;
+    final patterns = _replyPatterns[style] ?? _replyPatterns['gentle']!;
     
     List<String> candidates = [];
     
@@ -5662,7 +6033,10 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       candidates.addAll(patterns['default']!);
     }
     
-    // ランダムに選択
+    // ランダムに選択（空の場合の保険も追加）
+    if (candidates.isEmpty) {
+      return _currentLanguage == 'en' ? 'Thank you😊' : 'ありがとうございます😊';
+    }
     final randomIndex = DateTime.now().millisecondsSinceEpoch % candidates.length;
     return candidates[randomIndex];
   }
@@ -5936,7 +6310,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
 回答は"positive"、"neutral"、"negative"のいずれか1つだけを返してください。他の文字は含めないでください。
 ''';
 
-      final response = await http.post(
+      final response = await http
+          .post(
         Uri.parse(_geminiApiUrl),
         headers: {
           'Content-Type': 'application/json',
@@ -5951,11 +6326,22 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
             'maxOutputTokens': 10,
           }
         }),
-      );
+      )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        String sentiment = data['candidates'][0]['content']['parts'][0]['text'].trim().toLowerCase();
+        String sentiment = '';
+        if (data['candidates'] is List && (data['candidates'] as List).isNotEmpty) {
+          final content = data['candidates'][0]['content'];
+          if (content != null && content['parts'] is List && content['parts'].isNotEmpty) {
+            sentiment = content['parts'][0]['text']?.toString().trim().toLowerCase() ?? '';
+          }
+        }
+        if (sentiment.isEmpty) {
+          _logger.w("感情分析: 応答にテキストがないためフォールバックします: ${response.body}");
+          return _simpleNegativeCheck(message);
+        }
         
         // 結果をクリーンアップ
         if (sentiment.contains('positive')) return 'positive';
@@ -6173,8 +6559,10 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       ),
     );
     
-    // 3秒後にスロット結果を決定
-    Timer(const Duration(seconds: 3), () {
+    // アニメーション完了後も最終面（777など）を少し長めに表示
+    final animDuration = _rouletteController.duration ?? const Duration(seconds: 3);
+    const holdDuration = Duration(milliseconds: 1200); // 追加で見せる時間
+    Timer(animDuration + holdDuration, () {
       Navigator.of(context).pop(); // スロットダイアログを閉じる
       
       // 事前に計算された結果を使用
@@ -6440,6 +6828,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
     _playSuccessSound();
     
     // フルスクリーン動画を表示
+    // BGM は動画中は止め、終了後にチャットBGMを再開する
+    _stopBGM();
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -6450,6 +6840,8 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
           autoDismissAfter: const Duration(seconds: 5), // 5秒後に自動で閉じる
           onVideoCompleted: () {
             Navigator.of(context).pop();
+            // 動画終了後にチャットBGMを再開
+            _startChatBGM();
             _showConfessionSuccessDialog(); // 動画後に従来のダイアログを表示
           },
         ),
@@ -6617,7 +7009,11 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
                 Navigator.of(context).pop();
                 setState(() {
                   _isInConfessionEvent = false;
+                  // 安定してチャット継続（画面リセット防止）
+                  _isInChat = true;
                 });
+                // チャットBGMを維持
+                _startChatBGM();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.grey,
@@ -6633,7 +7029,7 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       ),
     );
   }
-
+  
   // 話題選択ボタンを構築
   Widget _buildTopicButton(String topic, String label, IconData icon, Color color) {
     return Container(
@@ -6657,6 +7053,21 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
         ),
       ),
     );
+  }
+
+  // 話題タグのラベル（多言語対応）
+  String _getTopicLabel(String topic) {
+    const labels = {
+      'weather': {'ja': '天気', 'en': 'Weather'},
+      'hobbies': {'ja': '趣味', 'en': 'Hobbies'},
+      'food': {'ja': '食べ物', 'en': 'Food'},
+      'future': {'ja': '将来', 'en': 'Future'},
+      'memories': {'ja': '思い出', 'en': 'Memories'},
+    };
+    final lang = _currentLanguage;
+    final map = labels[topic];
+    if (map == null) return topic;
+    return map[lang] ?? map['ja'] ?? topic;
   }
   
   // 話題を選択してユーザーが定型文を送信
@@ -7044,9 +7455,9 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Choose a topic to talk about",
-                  style: TextStyle(
+                Text(
+                  _getText('conversation_starters'),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
                     fontWeight: FontWeight.w500,
@@ -7057,11 +7468,11 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildTopicButton('weather', 'Weather', Icons.wb_sunny, Colors.orange),
-                      _buildTopicButton('hobbies', 'Hobbies', Icons.sports_esports, Colors.blue),
-                      _buildTopicButton('food', 'Food', Icons.restaurant, Colors.green),
-                      _buildTopicButton('future', 'Future', Icons.star, Colors.purple),
-                      _buildTopicButton('memories', 'Memories', Icons.photo_library, Colors.pink),
+                      _buildTopicButton('weather', _getTopicLabel('weather'), Icons.wb_sunny, Colors.orange),
+                      _buildTopicButton('hobbies', _getTopicLabel('hobbies'), Icons.sports_esports, Colors.blue),
+                      _buildTopicButton('food', _getTopicLabel('food'), Icons.restaurant, Colors.green),
+                      _buildTopicButton('future', _getTopicLabel('future'), Icons.star, Colors.purple),
+                      _buildTopicButton('memories', _getTopicLabel('memories'), Icons.photo_library, Colors.pink),
                     ],
                   ),
                 ),
