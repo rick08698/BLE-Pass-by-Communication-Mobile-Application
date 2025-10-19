@@ -198,6 +198,22 @@ class TitlePage extends StatefulWidget {
 
 class _TitlePageState extends State<TitlePage> {
   String _selectedLanguage = 'ja'; // デフォルトは日本語
+  // タイトル画面用のBGM
+  final AudioService _audioService = AudioService();
+
+  @override
+  void initState() {
+    super.initState();
+    // タイトルBGMを開始
+    _audioService.playBGM('music/title_bgm.mp3');
+  }
+
+  @override
+  void dispose() {
+    // タイトル画面を離れる際にBGMを停止（次の画面で別BGMを開始）
+    _audioService.stopBGM();
+    super.dispose();
+  }
 
   // 多言語対応用のテキスト定義（タイトル画面用）
   Map<String, Map<String, String>> get _titleTexts => {
