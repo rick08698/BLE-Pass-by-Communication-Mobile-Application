@@ -6547,8 +6547,10 @@ Example: "That's a trial from God🙏 As the Bible says✨ Let us pray together�
       ),
     );
     
-    // 3秒後にスロット結果を決定
-    Timer(const Duration(seconds: 3), () {
+    // アニメーション完了後も最終面（777など）を少し長めに表示
+    final animDuration = _rouletteController.duration ?? const Duration(seconds: 3);
+    const holdDuration = Duration(milliseconds: 1200); // 追加で見せる時間
+    Timer(animDuration + holdDuration, () {
       Navigator.of(context).pop(); // スロットダイアログを閉じる
       
       // 事前に計算された結果を使用
